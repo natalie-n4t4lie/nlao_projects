@@ -2,7 +2,6 @@ CREATE OR REPLACE TABLE `etsy-data-warehouse-dev.nlao.perso_custo_listing_label`
 WITH
   pero_custo_label AS (
   SELECT
-    
     lt.listing_id,
     shop_id,
     title,
