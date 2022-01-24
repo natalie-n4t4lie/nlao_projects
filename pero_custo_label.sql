@@ -49,6 +49,9 @@ SELECT
   pc.shop_id,
   pc.title,
   pc.description,
+  pc.title_text_custom,
+  pc.description_text_custom,
+  pc.attribute_personalizable,
   CASE WHEN 
         REGEXP_CONTAINS(LOWER(pc.title), r'birth flower|birthflower|birth month flower|birthmonth flower') OR
         REGEXP_CONTAINS(LOWER(pc.attribute_name), r'birth flower|birthflower|birth month flower|birthmonth flower')
@@ -93,16 +96,8 @@ SELECT
         LOWER(pc.attribute_value) LIKE "%waxing gibbous%")
         THEN 1
       ELSE 0
-    END AS moon_phase,
-    lv.is_active,
-    lv.top_category,
-    lg.past_year_gms
+    END AS moon_phase
 FROM pero_custo_label pc
-JOIN `etsy-data-warehouse-prod.listing_mart.listing_vw` lv USING (listing_id)
-JOIN `etsy-data-warehouse-prod.listing_mart.listing_gms` lg USING (listing_id)
 )
-
-
-
 
 
