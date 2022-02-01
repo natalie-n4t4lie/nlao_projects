@@ -1,4 +1,3 @@
--- birth stone/flower
 CREATE OR REPLACE TABLE `etsy-data-warehouse-dev.nlao.perso_custo_listing_label` AS (
 
 -- 1) extract perso/custo keywords from title
