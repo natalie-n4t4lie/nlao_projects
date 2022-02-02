@@ -53,7 +53,7 @@ SELECT
   attribute_personalizable,
   attribute_name,
   attribute_value,
-  instructions,
+  personalization_instruction,
   perso_custo_flag, 
   CASE WHEN 
         (perso_custo_flag = 1)
@@ -151,13 +151,13 @@ SELECT
     END AS perso_audio,
     CASE WHEN
         (perso_custo_flag = 1 AND attribute_personalizable = 1)
-        AND REGEXP_CONTAINS(LOWER(instructions), r'date')
+        AND REGEXP_CONTAINS(LOWER(personalization_instruction), r'date')
         THEN 1
       ELSE 0
     END AS perso_date,
     CASE WHEN
         (perso_custo_flag = 1 AND attribute_personalizable = 1)
-        AND REGEXP_CONTAINS(LOWER(instructions), r'text|phrase')
+        AND REGEXP_CONTAINS(LOWER(personalization_instruction), r'text|phrase')
         THEN 1
       ELSE 0
     END AS perso_text,
