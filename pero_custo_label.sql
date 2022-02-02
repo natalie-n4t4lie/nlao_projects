@@ -161,6 +161,24 @@ SELECT
         THEN 1
       ELSE 0
     END AS perso_text,
+    CASE WHEN
+        (perso_custo_flag = 1 AND attribute_personalizable = 1)
+        AND REGEXP_CONTAINS(LOWER(personalization_instruction), r'address|latitude')
+        THEN 1
+      ELSE 0
+    END AS perso_address,
+    CASE WHEN 
+       (perso_custo_flag = 1 AND attribute_personalizable = 1)
+       AND REGEXP_CONTAINS(LOWER(personalization_instruction), r'name')
+       THEN 1
+      ELSE 0
+    END AS perso_name,
+    CASE WHEN 
+       (perso_custo_flag = 1 AND attribute_personalizable = 1)
+       AND REGEXP_CONTAINS(LOWER(personalization_instruction), r'initial')
+       THEN 1
+      ELSE 0
+    END AS perso_initial,
 FROM pero_custo_label
 )
 
