@@ -125,7 +125,7 @@ SELECT
     CASE WHEN
         (perso_custo_flag = 1)
         AND LOWER(attribute_name) LIKE "%scent%" 
-        AND (LOWER(attribute_name) NOT LIKE "%crescent%" AND (LOWER(attribute_name) NOT LIKE "iridescent"))
+        AND (LOWER(attribute_name) NOT LIKE "%crescent%" AND (LOWER(attribute_name) NOT LIKE "%iridescent%"))
         OR (lower(title) like '% scent%' AND lower(title) not like "%unscented%") 
         THEN 1
       ELSE 0
