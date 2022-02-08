@@ -1,11 +1,19 @@
-CREATE OR REPLACE TABLE `etsy-data-warehouse-dev.nlao.perso_custo_listing_label` AS (
+CREATE OR REPLACE TABLE `etsy-data-warehouse-prod.knowledge_base.perso_custo_listing_level` AS (
 
 -- 1) extract perso/custo keywords from title
 -- 2) get number of variation
 -- 3) is_personalizable flag
 -- 4) if listing has perso/custo keywords AND (number of variation >=1 OR is_personalizable =1)
 WITH
-  pero_custo_label AS (
+personalization_instruction as (
+SELECT 
+  cr.listing_id,
+  tr.instructions
+FROM `etsy-data-warehouse-prod.etsy_shard.listing_personalization_field_translations` tr
+JOIN `etsy-data-warehouse-prod.etsy_shard.listing_personalization_current_revisions` cr
+ON tr.shop_id = cr.shop_id AND tr.listing_personalization_revision_id = cr.listing_personalization_revision_id
+),
+pero_custo_label AS (
   SELECT
     l.listing_id,
     l.shop_id,
@@ -30,7 +38,7 @@ WITH
     la.is_personalizable AS attribute_personalizable,
     lva.attribute_name,
     lva.attribute_value,
-    lpft.instructions as personalization_instruction
+    pi.instructions
   FROM
     `etsy-data-warehouse-prod.listing_mart.listing_vw` l
   LEFT JOIN 
@@ -39,9 +47,8 @@ WITH
   LEFT JOIN 
     `etsy-data-warehouse-prod.listing_mart.listing_variation_attributes` lva
   ON l.listing_id = lva.listing_id
-  LEFT JOIN 
-    `etsy-data-warehouse-prod.etsy_shard.listing_personalization_field_translations` lpft
-  ON l.listing_id = lpft.listing_id
+  LEFT join personalization_instruction pi
+  ON l.listing_id = lva.listing_id
 ),
 perso_custo_detail_label as (
 SELECT 
@@ -53,7 +60,7 @@ SELECT
   attribute_personalizable,
   attribute_name,
   attribute_value,
-  personalization_instruction,
+  instructions,
   perso_custo_flag, 
   CASE WHEN 
         (perso_custo_flag = 1)
@@ -125,7 +132,7 @@ SELECT
     CASE WHEN
         (perso_custo_flag = 1)
         AND LOWER(attribute_name) LIKE "%scent%" 
-        AND (LOWER(attribute_name) NOT LIKE "%crescent%" AND (LOWER(attribute_name) NOT LIKE "%iridescent%"))
+        AND (LOWER(attribute_name) NOT LIKE "%crescent%" AND (LOWER(attribute_name) NOT LIKE "iridescent"))
         OR (lower(title) like '% scent%' AND lower(title) not like "%unscented%") 
         THEN 1
       ELSE 0
@@ -151,61 +158,114 @@ SELECT
     END AS perso_audio,
     CASE WHEN
         (perso_custo_flag = 1 AND attribute_personalizable = 1)
-        AND REGEXP_CONTAINS(LOWER(personalization_instruction), r'date')
+        AND REGEXP_CONTAINS(LOWER(instructions), r'date')
         THEN 1
       ELSE 0
     END AS perso_date,
     CASE WHEN
         (perso_custo_flag = 1 AND attribute_personalizable = 1)
-        AND REGEXP_CONTAINS(LOWER(personalization_instruction), r'text|phrase')
+        AND REGEXP_CONTAINS(LOWER(instructions), r'text|phrase')
         THEN 1
       ELSE 0
     END AS perso_text,
-    CASE WHEN
-        (perso_custo_flag = 1 AND attribute_personalizable = 1)
-        AND REGEXP_CONTAINS(LOWER(personalization_instruction), r'address|latitude')
-        THEN 1
-      ELSE 0
-    END AS perso_address,
-    CASE WHEN 
-       (perso_custo_flag = 1 AND attribute_personalizable = 1)
-       AND REGEXP_CONTAINS(LOWER(personalization_instruction), r'name')
-       THEN 1
-      ELSE 0
-    END AS perso_name,
-    CASE WHEN 
-       (perso_custo_flag = 1 AND attribute_personalizable = 1)
-       AND REGEXP_CONTAINS(LOWER(personalization_instruction), r'initial')
-       THEN 1
-      ELSE 0
-    END AS perso_initial,
 FROM pero_custo_label
 )
 
-SELECT 
-  listing_id,
-  shop_id,
-  title,
-  variation_count,
-  title_text_custom,
-  attribute_personalizable,
-  perso_custo_flag, 
-  custo_birth_flower,
-  custo_birth_stone,  
-  custo_zodiac_sign,
-  custo_location,
-  custo_initial,
-  custo_moon_phase,
-  custo_font,
-  custo_shape,
-  custo_image_icon,
-  custo_scent,
-  custo_text,
-  custo_number,
-  perso_audio,
+select 
+ current_date() AS run_date,
+ listing_id,
+ shop_id,
+ title,
+ variation_count,
+ is_personalizable,
+max(custo_birth_flower) as custo_birth_flower,
+max(custo_birth_stone) as custo_birth_stone,
+max(custo_zodiac_sign) as custo_zodiac_sign,
+max(custo_location) as custo_location,
+max(custo_initial) as custo_initial,
+max(custo_moon_phase) as custo_moon_phase,
+max(custo_font) as custo_font,
+max(custo_shape) as custo_shape,
+max(custo_image_icon) as custo_image_icon,
+max(custo_pattern) as custo_pattern,
+max(custo_scent) as custo_scent,
+max(custo_text) as custo_text,
+max(custo_number) as custo_number,
+max(perso_audio) as perso_audio,
+max(perso_date) as perso_date,
+max(perso_text) as perso_text,
+max(perso_address) as perso_address,
+max(perso_name) as perso_name,
+max(perso_initial) as perso_initial,
+max(perso_image) as perso_image
 FROM perso_custo_detail_label
+GROUP BY 1,2,3,4,5,6
 )
+;
 
-
-
+CREATE OR REPLACE TABLE `etsy-data-warehouse-prod.knowledge_base.perso_custo_listing_label_level` AS (
+SELECT current_date() AS run_date,'custo_birth_flower' as perso_custo_label, listing_id, shop_id, title, variation_count, is_personalizable
+FROM `etsy-data-warehouse-dev.nlao.perso_custo_listing_label` WHERE custo_birth_flower = 1
+UNION ALL
+SELECT current_date() AS run_date,'custo_birth_stone' as perso_custo_label, listing_id, shop_id, title, variation_count, is_personalizable
+FROM `etsy-data-warehouse-dev.nlao.perso_custo_listing_label` WHERE custo_birth_stone = 1
+UNION ALL
+SELECT current_date() AS run_date,'custo_zodiac_sign' as perso_custo_label, listing_id, shop_id, title, variation_count, is_personalizable
+FROM `etsy-data-warehouse-dev.nlao.perso_custo_listing_label` WHERE custo_zodiac_sign = 1
+UNION ALL
+SELECT current_date() AS run_date,'custo_location' as perso_custo_label, listing_id, shop_id, title, variation_count, is_personalizable
+FROM `etsy-data-warehouse-dev.nlao.perso_custo_listing_label` WHERE custo_location = 1
+UNION ALL
+SELECT current_date() AS run_date,'custo_initial' as perso_custo_label, listing_id, shop_id, title, variation_count, is_personalizable
+FROM `etsy-data-warehouse-dev.nlao.perso_custo_listing_label` WHERE custo_initial = 1
+UNION ALL
+SELECT current_date() AS run_date,'custo_moon_phase' as perso_custo_label, listing_id, shop_id, title, variation_count, is_personalizable
+FROM `etsy-data-warehouse-dev.nlao.perso_custo_listing_label` WHERE custo_moon_phase = 1
+UNION ALL
+SELECT current_date() AS run_date,'custo_font' as perso_custo_label, listing_id, shop_id, title, variation_count, is_personalizable
+FROM `etsy-data-warehouse-dev.nlao.perso_custo_listing_label` WHERE custo_font = 1
+UNION ALL
+SELECT current_date() AS run_date,'custo_shape' as perso_custo_label, listing_id, shop_id, title, variation_count, is_personalizable
+FROM `etsy-data-warehouse-dev.nlao.perso_custo_listing_label` WHERE custo_shape = 1
+UNION ALL
+SELECT current_date() AS run_date,'custo_image_icon' as perso_custo_label, listing_id, shop_id, title, variation_count, is_personalizable
+FROM `etsy-data-warehouse-dev.nlao.perso_custo_listing_label` WHERE custo_image_icon = 1
+UNION ALL
+SELECT current_date() AS run_date,'custo_pattern' as perso_custo_label, listing_id, shop_id, title, variation_count, is_personalizable
+FROM `etsy-data-warehouse-dev.nlao.perso_custo_listing_label` WHERE custo_pattern = 1
+UNION ALL
+SELECT current_date() AS run_date,'custo_scent' as perso_custo_label, listing_id, shop_id, title, variation_count, is_personalizable
+FROM `etsy-data-warehouse-dev.nlao.perso_custo_listing_label` WHERE custo_scent = 1
+UNION ALL
+SELECT current_date() AS run_date,'custo_text' as perso_custo_label, listing_id, shop_id, title, variation_count, is_personalizable
+FROM `etsy-data-warehouse-dev.nlao.perso_custo_listing_label` WHERE custo_text = 1
+UNION ALL
+SELECT current_date() AS run_date,'custo_number' as perso_custo_label, listing_id, shop_id, title, variation_count, is_personalizable
+FROM `etsy-data-warehouse-dev.nlao.perso_custo_listing_label` WHERE custo_number = 1
+UNION ALL
+SELECT current_date() AS run_date,'perso_audio' as perso_custo_label, listing_id, shop_id, title, variation_count, is_personalizable
+FROM `etsy-data-warehouse-dev.nlao.perso_custo_listing_label` WHERE perso_audio = 1
+UNION ALL
+SELECT current_date() AS run_date,'perso_date' as perso_custo_label, listing_id, shop_id, title, variation_count, is_personalizable
+FROM `etsy-data-warehouse-dev.nlao.perso_custo_listing_label` WHERE perso_date = 1
+UNION ALL
+SELECT current_date() AS run_date,'perso_text' as perso_custo_label, listing_id, shop_id, title, variation_count, is_personalizable
+FROM `etsy-data-warehouse-dev.nlao.perso_custo_listing_label` WHERE perso_text = 1
+UNION ALL
+SELECT current_date() AS run_date,'perso_address' as perso_custo_label, listing_id, shop_id, title, variation_count, is_personalizable
+FROM `etsy-data-warehouse-dev.nlao.perso_custo_listing_label` WHERE perso_address = 1
+UNION ALL
+SELECT current_date() AS run_date,'perso_name' as perso_custo_label, listing_id, shop_id, title, variation_count, is_personalizable
+FROM `etsy-data-warehouse-dev.nlao.perso_custo_listing_label` WHERE perso_name = 1
+UNION ALL
+SELECT current_date() AS run_date,'perso_initial' as perso_custo_label, listing_id, shop_id, title, variation_count, is_personalizable
+FROM `etsy-data-warehouse-dev.nlao.perso_custo_listing_label` WHERE perso_initial = 1
+UNION ALL
+SELECT current_date() AS run_date,'perso_image' as perso_custo_label, listing_id, shop_id, title, variation_count, is_personalizable
+FROM `etsy-data-warehouse-dev.nlao.perso_custo_listing_label` WHERE perso_image = 1
+UNION ALL
+SELECT current_date() AS run_date,'no_label' as perso_custo_label, listing_id, shop_id, title, variation_count, is_personalizable
+FROM `etsy-data-warehouse-dev.nlao.perso_custo_listing_label` WHERE custo_birth_flower+custo_birth_stone+custo_zodiac_sign+custo_location+custo_initial+custo_moon_phase+custo_font+custo_shape+custo_image_icon+custo_pattern+custo_scent+custo_text+custo_number+perso_audio+perso_date+perso_text+perso_address+perso_name+perso_initial+perso_image = 0
+)
+;
 
