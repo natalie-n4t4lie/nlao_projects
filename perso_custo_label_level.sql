@@ -1,29 +1,44 @@
-CREATE OR REPLACE TABLE `etsy-data-warehouse-dev.knowledge_base.perso_custo_label_level` AS (
+-- owner: nlao@etsy.com
+-- dependency: 
+    -- `etsy-data-warehouse-prod.listing_mart.listing_titles` 
+    -- `etsy-data-warehouse-prod.listing_mart.listings`
+    -- `etsy-data-warehouse-prod.listing_mart.listing_variations`
+    -- `etsy-data-warehouse-prod.listing_mart.listing_attributes`
+    -- `etsy-data-warehouse-prod.etsy_shard.listing_personalization_field_translations`
+    -- `etsy-data-warehouse-prod.etsy_shard.listing_personalization_current_revisions`
+
+-- Description: this table is intended to label personalized/customized listing using string manipulation
+
+BEGIN
+
 -- 1) extract perso/custo keywords from title
 -- 2) get number of variation
 -- 3) is_personalizable flag
 -- 4) if listing has perso/custo keywords AND (number of variation >=1 OR is_personalizable =1)
-WITH
-pero_custo_listings AS (
+create temp table pero_custo_listings AS (
+with listings as (
  SELECT
-   l.listing_id,
-   l.shop_id,
-   l.title,
-   l.variation_count,
-   la.is_personalizable
- FROM
-   `etsy-data-warehouse-prod.listing_mart.listing_vw` l
- LEFT JOIN
-   `etsy-data-warehouse-prod.listing_mart.listing_attributes` la
- ON l.listing_id = la.listing_id
+   listing_id, title
+from `etsy-data-warehouse-prod.listing_mart.listing_titles`
 WHERE ((LOWER(title) LIKE '%personali%' AND LOWER(title) NOT LIKE '%personality%')
        OR LOWER(title) LIKE '%monogram%'
        OR (LOWER(title) LIKE '%custom%' AND LOWER(title) NOT LIKE '%customer%')
-       OR LOWER(title) LIKE '%made to order%' OR LOWER(title) LIKE '%made-to-order%')
-       AND (is_personalizable = 1 OR variation_count >= 1)
-),
--- extract personalization instruction field from each listings
-personalization_instruction as (
+       OR LOWER(title) LIKE '%made to order%' OR LOWER(title) LIKE '%made-to-order%'))
+select ll.listing_id,
+   l.shop_id,
+   ll.title,
+   v.variation_count,
+   la.is_personalizable
+ FROM listings ll 
+ JOIN `etsy-data-warehouse-prod.listing_mart.listings` l USING (listing_id)
+ JOIN `etsy-data-warehouse-prod.listing_mart.listing_variations` v USING (listing_id)
+ LEFT JOIN `etsy-data-warehouse-prod.listing_mart.listing_attributes` la
+   ON ll.listing_id = la.listing_id
+WHERE
+    (is_personalizable = 1 OR variation_count >= 1)
+);
+
+create temp table personalization_instruction as (
 SELECT 
   cr.listing_id,
   tr.instructions
@@ -31,8 +46,12 @@ FROM `etsy-data-warehouse-prod.etsy_shard.listing_personalization_field_translat
 JOIN `etsy-data-warehouse-prod.etsy_shard.listing_personalization_current_revisions` cr
 ON tr.shop_id = cr.shop_id AND tr.listing_personalization_revision_id = cr.listing_personalization_revision_id
 WHERE cr.listing_id in (SELECT LISTING_ID FROM pero_custo_listings)
-),
-custo_birth_flower as (
+);
+
+
+CREATE OR REPLACE TABLE `etsy-data-warehouse-dev.knowledge_base.perso_custo_label_level` AS (
+-- extract personalization instruction field from each listings
+WITH custo_birth_flower as (
 SELECT 
  l.listing_id,
  l.shop_id,
@@ -255,7 +274,7 @@ FROM pero_custo_listings l
 LEFT JOIN `etsy-data-warehouse-prod.listing_mart.listing_variation_attributes` lva USING (listing_id)
 LEFT JOIN personalization_instruction USING (listing_id)
 WHERE is_personalizable = 1
-       AND (REGEXP_CONTAINS(LOWER(instructions), r'text|phrase|wording|word|saying|message|letter')
+       AND (REGEXP_CONTAINS(LOWER(instructions), r'text|phrase|wording|word|saying|message|letter|lyrics')
        OR LOWER(attribute_name) LIKE "text" OR LOWER(attribute_name) LIKE "%title%" OR LOWER(attribute_name) LIKE "%wording%")
 ),
 perso_address as (
@@ -347,7 +366,9 @@ SELECT current_date() as run_date, * FROM perso_initial	UNION ALL
 SELECT current_date() as run_date, * FROM perso_image
 )
 
-SELECT * FROM temp_label
+SELECT
+  * 
+FROM temp_label
 UNION ALL 
 SELECT 
   current_date() as run_date,
@@ -355,6 +376,6 @@ SELECT
  'no_label' as perso_custo_label
 FROM pero_custo_listings
 WHERE listing_id not in (SELECT listing_id FROM temp_label)
-)
+);
 
-
+END;
