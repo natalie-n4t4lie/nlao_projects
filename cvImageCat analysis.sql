@@ -1,3 +1,26 @@
+-- OVERALL COVERAGE
+SELECT COUNT(DISTINCT listing_id) as active_listing_ct
+FROM `etsy-data-warehouse-prod.rollups.active_listing_basics`
+;--106022904
+
+SELECT
+COUNT(DISTINCT listing_id) AS cvimage_listing_count,
+COUNT(DISTINCT listing_id)/106022904 AS cvimage_coverage
+FROM `etsy-data-warehouse-prod.computer_vision.listing_image_categorization` li
+JOIN `etsy-data-warehouse-prod.rollups.active_listing_basics` USING (listing_id)
+WHERE li.in_isolation >= 0.6 
+OR li.multiple_variations >= 0.8
+OR li.size_and_scale >= 0.6
+OR li.styled_lifestyle_or_in_context >= 0.6
+OR li.zoom >= 0.8
+OR li.size_chart >= 0.6
+OR li.color_chart >= 0.6
+OR li.infographic >= 0.6
+OR li.white_background >= 0.6
+OR li.in_packaging >= 0.8
+OR li.has_humans >= 0.6
+;-- 0.894
+
 #coverage of each image class
 SELECT
 COUNT(DISTINCT CASE WHEN li.in_isolation >= 0.6 THEN listing_id ELSE NULL END) AS in_isolation_listing,
