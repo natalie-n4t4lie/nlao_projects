@@ -47,26 +47,20 @@ FROM `etsy-data-warehouse-prod.user_mart.mapped_user_profile` bb
 -- OVERALL (USER VISIT IN THE PAST 30 DAYS AS DENOMINATOR)
 SELECT
 COUNT(user_id) AS user_visit,
-COUNT(CASE WHEN user_id IN (select user_id FROM `etsy-data-warehouse-prod.knowledge_base.buyer_hobbies` WHERE _date = '2022-05-23' AND score >= 0.1 ) THEN user_id ELSE NULL END) AS active_hobby_coverage_01_threshold,
-COUNT(CASE WHEN user_id IN (select user_id FROM `etsy-data-warehouse-prod.knowledge_base.buyer_hobbies` WHERE _date = '2022-05-23') THEN user_id ELSE NULL END) AS active_hobby_coverage,
-COUNT(CASE WHEN user_id IN (select user_id FROM `etsy-data-warehouse-prod.knowledge_base.buyer_styles` WHERE _date = '2022-05-23' AND score >= 0.1 ) THEN user_id ELSE NULL END) AS active_style_coverage_01_threshold,
-COUNT(CASE WHEN user_id IN (select user_id FROM `etsy-data-warehouse-prod.knowledge_base.buyer_styles` WHERE _date = '2022-05-23') THEN user_id ELSE NULL END) AS active_style_coverage,
-COUNT(CASE WHEN user_id IN (select user_id FROM `etsy-data-warehouse-prod.knowledge_base.buyer_favorite_animals` WHERE _date = '2022-05-23' AND score >= 0.1 ) THEN user_id ELSE NULL END) AS active_animal_coverage_01_threshold,
-COUNT(CASE WHEN user_id IN (select user_id FROM `etsy-data-warehouse-prod.knowledge_base.buyer_favorite_animals` WHERE _date = '2022-05-23') THEN user_id ELSE NULL END) AS active_animal_coverage
+COUNT(distinct CASE WHEN user_id IN (SELECT user_id FROM `etsy-data-warehouse-dev.nlao.buyer_concept_union` WHERE attribute_type = 'Hobby') THEN user_id ELSE NULL END) AS hobby,
+COUNT(distinct CASE WHEN user_id IN (SELECT user_id FROM `etsy-data-warehouse-dev.nlao.buyer_concept_union` WHERE attribute_type = 'Animal') THEN user_id ELSE NULL END) AS animal,
+COUNT(distinct CASE WHEN user_id IN (SELECT user_id FROM `etsy-data-warehouse-dev.nlao.buyer_concept_union` WHERE attribute_type = 'Style') THEN user_id ELSE NULL END) AS style
 FROM `etsy-data-warehouse-prod.weblog.recent_visits` 
-WHERE _date BETWEEN "2022-04-23" AND "2022-05-23"
+WHERE _date BETWEEN "2022-04-23" AND "2022-05-23" AND user_id is not null
 ;
 
 -- REGION
 SELECT
 bb.region_name,
 COUNT(bb.mapped_user_id) as user_count,
-COUNT(CASE WHEN bb.mapped_user_id IN (select user_id FROM `etsy-data-warehouse-prod.knowledge_base.buyer_hobbies` WHERE _date = '2022-05-23' AND score >= 0.1 ) THEN mapped_user_id ELSE NULL END) AS hobby_coverage_01_threshold,
-COUNT(CASE WHEN bb.mapped_user_id IN (select user_id FROM `etsy-data-warehouse-prod.knowledge_base.buyer_hobbies` WHERE _date = '2022-05-23') THEN mapped_user_id ELSE NULL END) AS hobby_coverage,
-COUNT(CASE WHEN bb.mapped_user_id IN (select user_id FROM `etsy-data-warehouse-prod.knowledge_base.buyer_styles` WHERE _date = '2022-05-23' AND score >= 0.1 ) THEN mapped_user_id ELSE NULL END) AS style_coverage_01_threshold,
-COUNT(CASE WHEN bb.mapped_user_id IN (select user_id FROM `etsy-data-warehouse-prod.knowledge_base.buyer_styles` WHERE _date = '2022-05-23') THEN mapped_user_id ELSE NULL END) AS style_coverage,
-COUNT(CASE WHEN bb.mapped_user_id IN (select user_id FROM `etsy-data-warehouse-prod.knowledge_base.buyer_favorite_animals` WHERE _date = '2022-05-23' AND score >= 0.1 ) THEN mapped_user_id ELSE NULL END) AS animal_coverage_01_threshold,
-COUNT(CASE WHEN bb.mapped_user_id IN (select user_id FROM `etsy-data-warehouse-prod.knowledge_base.buyer_favorite_animals` WHERE _date = '2022-05-23') THEN mapped_user_id ELSE NULL END) AS animal_coverage,
+COUNT(distinct CASE WHEN mapped_user_id IN (SELECT user_id FROM `etsy-data-warehouse-dev.nlao.buyer_concept_union` WHERE attribute_type = 'Hobby') THEN user_id ELSE NULL END) AS hobby,
+COUNT(distinct CASE WHEN mapped_user_id IN (SELECT user_id FROM `etsy-data-warehouse-dev.nlao.buyer_concept_union` WHERE attribute_type = 'Animal') THEN user_id ELSE NULL END) AS animal,
+COUNT(distinct CASE WHEN mapped_user_id IN (SELECT user_id FROM `etsy-data-warehouse-dev.nlao.buyer_concept_union` WHERE attribute_type = 'Style') THEN user_id ELSE NULL END) AS style
 FROM `etsy-data-warehouse-prod.rollups.buyer_basics` bb
 GROUP BY 1
 ;
@@ -106,12 +100,9 @@ GROUP BY 1
 SELECT
 bb.buyer_lifetime_gms_bin,
 COUNT(bb.mapped_user_id) as user_count,
-COUNT(CASE WHEN bb.mapped_user_id IN (select user_id FROM `etsy-data-warehouse-prod.knowledge_base.buyer_hobbies` WHERE _date = '2022-05-23' AND score >= 0.1 ) THEN mapped_user_id ELSE NULL END) AS hobby_coverage_01_threshold,
-COUNT(CASE WHEN bb.mapped_user_id IN (select user_id FROM `etsy-data-warehouse-prod.knowledge_base.buyer_hobbies` WHERE _date = '2022-05-23') THEN mapped_user_id ELSE NULL END) AS hobby_coverage,
-COUNT(CASE WHEN bb.mapped_user_id IN (select user_id FROM `etsy-data-warehouse-prod.knowledge_base.buyer_styles` WHERE _date = '2022-05-23' AND score >= 0.1 ) THEN mapped_user_id ELSE NULL END) AS style_coverage_01_threshold,
-COUNT(CASE WHEN bb.mapped_user_id IN (select user_id FROM `etsy-data-warehouse-prod.knowledge_base.buyer_styles` WHERE _date = '2022-05-23') THEN mapped_user_id ELSE NULL END) AS style_coverage,
-COUNT(CASE WHEN bb.mapped_user_id IN (select user_id FROM `etsy-data-warehouse-prod.knowledge_base.buyer_favorite_animals` WHERE _date = '2022-05-23' AND score >= 0.1 ) THEN mapped_user_id ELSE NULL END) AS animal_coverage_01_threshold,
-COUNT(CASE WHEN bb.mapped_user_id IN (select user_id FROM `etsy-data-warehouse-prod.knowledge_base.buyer_favorite_animals` WHERE _date = '2022-05-23') THEN mapped_user_id ELSE NULL END) AS animal_coverage,
+COUNT(distinct CASE WHEN mapped_user_id IN (SELECT user_id FROM `etsy-data-warehouse-dev.nlao.buyer_concept_union` WHERE attribute_type = 'Hobby') THEN user_id ELSE NULL END) AS hobby,
+COUNT(distinct CASE WHEN mapped_user_id IN (SELECT user_id FROM `etsy-data-warehouse-dev.nlao.buyer_concept_union` WHERE attribute_type = 'Animal') THEN user_id ELSE NULL END) AS animal,
+COUNT(distinct CASE WHEN mapped_user_id IN (SELECT user_id FROM `etsy-data-warehouse-dev.nlao.buyer_concept_union` WHERE attribute_type = 'Style') THEN user_id ELSE NULL END) AS style
 FROM `etsy-data-warehouse-prod.rollups.buyer_basics` bb
 GROUP BY 1
 ;
@@ -120,26 +111,9 @@ GROUP BY 1
 SELECT
 bb.buyer_segment,
 COUNT(bb.mapped_user_id) as user_count,
-COUNT(CASE WHEN bb.mapped_user_id IN (select user_id FROM `etsy-data-warehouse-prod.knowledge_base.buyer_hobbies` WHERE _date = '2022-05-23' AND score >= 0.1 ) THEN mapped_user_id ELSE NULL END) AS hobby_coverage_01_threshold,
-COUNT(CASE WHEN bb.mapped_user_id IN (select user_id FROM `etsy-data-warehouse-prod.knowledge_base.buyer_hobbies` WHERE _date = '2022-05-23') THEN mapped_user_id ELSE NULL END) AS hobby_coverage,
-COUNT(CASE WHEN bb.mapped_user_id IN (select user_id FROM `etsy-data-warehouse-prod.knowledge_base.buyer_styles` WHERE _date = '2022-05-23' AND score >= 0.1 ) THEN mapped_user_id ELSE NULL END) AS style_coverage_01_threshold,
-COUNT(CASE WHEN bb.mapped_user_id IN (select user_id FROM `etsy-data-warehouse-prod.knowledge_base.buyer_styles` WHERE _date = '2022-05-23') THEN mapped_user_id ELSE NULL END) AS style_coverage,
-COUNT(CASE WHEN bb.mapped_user_id IN (select user_id FROM `etsy-data-warehouse-prod.knowledge_base.buyer_favorite_animals` WHERE _date = '2022-05-23' AND score >= 0.1 ) THEN mapped_user_id ELSE NULL END) AS animal_coverage_01_threshold,
-COUNT(CASE WHEN bb.mapped_user_id IN (select user_id FROM `etsy-data-warehouse-prod.knowledge_base.buyer_favorite_animals` WHERE _date = '2022-05-23') THEN mapped_user_id ELSE NULL END) AS animal_coverage,
-FROM `etsy-data-warehouse-prod.rollups.buyer_basics` bb
-GROUP BY 1
-;
-
--- BUYER SEGMENT
-SELECT
-bb.buyer_segment,
-COUNT(bb.mapped_user_id) as user_count,
-COUNT(CASE WHEN bb.mapped_user_id IN (select user_id FROM `etsy-data-warehouse-prod.knowledge_base.buyer_hobbies` WHERE _date = '2022-05-23' AND score >= 0.1 ) THEN mapped_user_id ELSE NULL END) AS hobby_coverage_01_threshold,
-COUNT(CASE WHEN bb.mapped_user_id IN (select user_id FROM `etsy-data-warehouse-prod.knowledge_base.buyer_hobbies` WHERE _date = '2022-05-23') THEN mapped_user_id ELSE NULL END) AS hobby_coverage,
-COUNT(CASE WHEN bb.mapped_user_id IN (select user_id FROM `etsy-data-warehouse-prod.knowledge_base.buyer_styles` WHERE _date = '2022-05-23' AND score >= 0.1 ) THEN mapped_user_id ELSE NULL END) AS style_coverage_01_threshold,
-COUNT(CASE WHEN bb.mapped_user_id IN (select user_id FROM `etsy-data-warehouse-prod.knowledge_base.buyer_styles` WHERE _date = '2022-05-23') THEN mapped_user_id ELSE NULL END) AS style_coverage,
-COUNT(CASE WHEN bb.mapped_user_id IN (select user_id FROM `etsy-data-warehouse-prod.knowledge_base.buyer_favorite_animals` WHERE _date = '2022-05-23' AND score >= 0.1 ) THEN mapped_user_id ELSE NULL END) AS animal_coverage_01_threshold,
-COUNT(CASE WHEN bb.mapped_user_id IN (select user_id FROM `etsy-data-warehouse-prod.knowledge_base.buyer_favorite_animals` WHERE _date = '2022-05-23') THEN mapped_user_id ELSE NULL END) AS animal_coverage,
+COUNT(distinct CASE WHEN mapped_user_id IN (SELECT user_id FROM `etsy-data-warehouse-dev.nlao.buyer_concept_union` WHERE attribute_type = 'Hobby') THEN user_id ELSE NULL END) AS hobby,
+COUNT(distinct CASE WHEN mapped_user_id IN (SELECT user_id FROM `etsy-data-warehouse-dev.nlao.buyer_concept_union` WHERE attribute_type = 'Animal') THEN user_id ELSE NULL END) AS animal,
+COUNT(distinct CASE WHEN mapped_user_id IN (SELECT user_id FROM `etsy-data-warehouse-dev.nlao.buyer_concept_union` WHERE attribute_type = 'Style') THEN user_id ELSE NULL END) AS style
 FROM `etsy-data-warehouse-prod.rollups.buyer_basics` bb
 GROUP BY 1
 ;
@@ -147,8 +121,7 @@ GROUP BY 1
 -- VISIT SEGMENT (AVG)
 WITH model_audience AS (
 SELECT 
-user_id,
-visit_id
+user_id
 FROM `etsy-data-warehouse-prod.weblog.recent_visits` 
 WHERE _date BETWEEN "2022-04-23" AND "2022-05-23"
       AND user_id IS NOT NULL
@@ -156,27 +129,23 @@ WHERE _date BETWEEN "2022-04-23" AND "2022-05-23"
 visit_level AS (
 SELECT
 v.user_id,
-count(distinct _date) AS visit_day_count,
-count(distinct visit_id) AS visit_count
+count(distinct _date) AS visit_day_count
 FROM model_audience
-JOIN `etsy-data-warehouse-prod.weblog.recent_visits` v USING (visit_id)
+JOIN `etsy-data-warehouse-prod.weblog.recent_visits` v USING (user_id)
 WHERE _date BETWEEN "2022-02-23" AND "2022-05-23"
 GROUP BY 1
 )
 SELECT
-attribute_type,
-avg(visit_day_count) as avg_visit_day,
-avg(visit_count) as avg_number_of_visit
+
+avg(visit_day_count) as avg_visit_day
 FROM visit_level bb
-JOIN `etsy-data-warehouse-dev.nlao.buyer_concept_union` USING (user_id)
 GROUP BY 1
 ;
 
 -- VISIT SEGMENT 
 WITH model_audience AS (
 SELECT 
-user_id,
-visit_id
+user_id
 FROM `etsy-data-warehouse-prod.weblog.recent_visits` 
 WHERE _date BETWEEN "2022-04-23" AND "2022-05-23"
       AND user_id IS NOT NULL
@@ -184,15 +153,13 @@ WHERE _date BETWEEN "2022-04-23" AND "2022-05-23"
 visit_level AS (
 SELECT
 v.user_id,
-count(distinct _date) AS visit_day_count,
-count(distinct visit_id) AS visit_count
+count(distinct _date) AS visit_day_count
 FROM model_audience
-JOIN `etsy-data-warehouse-prod.weblog.recent_visits` v USING (visit_id)
-WHERE _date BETWEEN "2022-02-23" AND "2022-05-23"
+JOIN `etsy-data-warehouse-prod.weblog.recent_visits` v USING (user_id)
+WHERE _date BETWEEN "2022-02-23" AND "2022-05-23" 
 GROUP BY 1
 )
 SELECT
-attribute_type,
 CASE
         WHEN visit_day_count BETWEEN  1 AND 10 THEN CAST(visit_day_count AS STRING)
         WHEN visit_day_count BETWEEN 11 AND 20 THEN '11-20'
@@ -202,21 +169,13 @@ CASE
         WHEN visit_day_count BETWEEN 61 AND 80 THEN '61-80'
         WHEN visit_day_count BETWEEN 81 AND 100 THEN '81-100'
         ELSE '100+'
-      END AS visit_time_count,
-CASE
-        WHEN visit_count BETWEEN  1 AND 20 THEN CAST(visit_count AS STRING)
-        WHEN visit_count BETWEEN 21 AND 30 THEN '21-30'
-        WHEN visit_count BETWEEN 31 AND 40 THEN '31-40'
-        WHEN visit_count BETWEEN 41 AND 50 THEN '41-50'
-        ELSE '50+'
-      END AS visit_count,
+      END AS visit_day_count,
 count(distinct user_id) as user_count,
 COUNT(distinct CASE WHEN user_id IN (SELECT user_id FROM `etsy-data-warehouse-dev.nlao.buyer_concept_union` WHERE attribute_type = 'Hobby') THEN user_id ELSE NULL END) AS hobby,
 COUNT(distinct CASE WHEN user_id IN (SELECT user_id FROM `etsy-data-warehouse-dev.nlao.buyer_concept_union` WHERE attribute_type = 'Animal') THEN user_id ELSE NULL END) AS animal,
 COUNT(distinct CASE WHEN user_id IN (SELECT user_id FROM `etsy-data-warehouse-dev.nlao.buyer_concept_union` WHERE attribute_type = 'Style') THEN user_id ELSE NULL END) AS style
 FROM visit_level bb
-JOIN `etsy-data-warehouse-dev.nlao.buyer_concept_union` USING (user_id)
-GROUP BY 1,2,3
+GROUP BY 1
 ;
 
 -- LISTING VIEW (AVG)
@@ -239,11 +198,13 @@ WHERE _date BETWEEN "2022-02-23" AND "2022-05-23"
 GROUP BY 1
 )
 SELECT
-attribute_type,
-avg(listing_view_distinct) as avg_distinct_listing_view,
-avg(listing_view) as avg_listing_view
+AVG(CASE WHEN user_id IN (SELECT user_id FROM `etsy-data-warehouse-dev.nlao.buyer_concept_union` WHERE attribute_type = 'Hobby') THEN listing_view_distinct ELSE NULL END) AS hobby_distinct_listing_view,
+AVG(CASE WHEN user_id IN (SELECT user_id FROM `etsy-data-warehouse-dev.nlao.buyer_concept_union` WHERE attribute_type = 'Animal') THEN listing_view_distinct ELSE NULL END) AS animal_distinct_listing_view,
+AVG(CASE WHEN user_id IN (SELECT user_id FROM `etsy-data-warehouse-dev.nlao.buyer_concept_union` WHERE attribute_type = 'Style') THEN listing_view_distinct ELSE NULL END) AS style_distinct_listing_view,
+AVG(CASE WHEN user_id IN (SELECT user_id FROM `etsy-data-warehouse-dev.nlao.buyer_concept_union` WHERE attribute_type = 'Hobby') THEN listing_view ELSE NULL END) AS hobby_listing_view,
+AVG(CASE WHEN user_id IN (SELECT user_id FROM `etsy-data-warehouse-dev.nlao.buyer_concept_union` WHERE attribute_type = 'Animal') THEN listing_view ELSE NULL END) AS animal_listing_view,
+AVG(CASE WHEN user_id IN (SELECT user_id FROM `etsy-data-warehouse-dev.nlao.buyer_concept_union` WHERE attribute_type = 'Style') THEN listing_view ELSE NULL END) AS style_listing_view
 FROM listing_views bb
-JOIN `etsy-data-warehouse-dev.nlao.buyer_concept_union` USING (user_id)
 GROUP BY 1
 ;
 
@@ -291,6 +252,7 @@ FROM listing_views bb
 GROUP BY 1,2
 ;
 
+-- LISTING VIEW
 WITH model_audience AS (
 SELECT 
 user_id,
@@ -400,7 +362,6 @@ GROUP BY 1
 ;
 
 ################### CONCEPT PER BUYER  ###################
--- HOBBY CONCEPT PER USER
 WITH cte AS(
 SELECT
 user_id,
@@ -433,6 +394,50 @@ FROM cte
 GROUP BY 1
 ;
 
+-- VISIT DAY 
+WITH model_audience AS (
+SELECT 
+user_id
+FROM `etsy-data-warehouse-prod.weblog.recent_visits` 
+WHERE _date BETWEEN "2022-04-23" AND "2022-05-23"
+      AND user_id IS NOT NULL
+),
+visit_level AS (
+SELECT
+v.user_id,
+count(distinct _date) AS visit_day_count
+FROM model_audience
+JOIN `etsy-data-warehouse-prod.weblog.recent_visits` v USING (user_id)
+WHERE _date BETWEEN "2022-02-23" AND "2022-05-23" 
+GROUP BY 1
+),
+concept_per_buyer AS(
+SELECT
+user_id,
+attribute_type,
+count(*) as concept_count
+FROM `etsy-data-warehouse-dev.nlao.buyer_concept_union`
+GROUP BY 1,2
+)
+SELECT
+CASE
+        WHEN visit_day_count BETWEEN  1 AND 10 THEN CAST(visit_day_count AS STRING)
+        WHEN visit_day_count BETWEEN 11 AND 20 THEN '11-20'
+        WHEN visit_day_count BETWEEN 21 AND 30 THEN '21-30'
+        WHEN visit_day_count BETWEEN 31 AND 40 THEN '31-40'
+        WHEN visit_day_count BETWEEN 41 AND 60 THEN '41-60'
+        WHEN visit_day_count BETWEEN 61 AND 80 THEN '61-80'
+        WHEN visit_day_count BETWEEN 81 AND 100 THEN '81-100'
+        ELSE '100+'
+      END AS visit_day_count,
+attribute_type,
+concept_count,
+count(distinct user_id) as user_count
+FROM visit_level bb
+JOIN concept_per_buyer USING (user_id)
+GROUP BY 1,2,3
+;
+
 ################### INTEREST POPULARITY ###################
 WITH listing_level AS (
 SELECT
@@ -441,7 +446,7 @@ display_name,
 COUNT(DISTINCT listing_id) as listing_count,
 SUM(past_year_gms) AS listing_gms
 FROM `etsy-data-warehouse-prod.knowledge_base.listing_interests`
-JOIN `etsy-data-warehouse-prod.listing_mart.listing_gms` USING(listing_id)
+JOIN `etsy-data-warehouse-prod.rollups.active_listing_basics` USING(listing_id)
 WHERE _date = date_sub(current_date(), interval 1 day) 
       AND score >=0.05
       AND (attribute_type = 'Hobby' OR attribute_type = 'Animal' OR attribute_type = 'Style')
@@ -468,6 +473,39 @@ FROM listing_level l
 LEFT JOIN USER_LEVEL u 
 ON l.attribute_type = u.attribute_type AND l.display_name = u.display_name
 ;
+
+-- STYLE GMS Coverage
+WITH overall as (
+SELECT
+count(listing_id) as total_active_listing_count,
+sum(past_year_gms) as total_active_listing_gms,
+1 as dummy
+FROM `etsy-data-warehouse-prod.rollups.active_listing_basics`
+),
+listing_level AS (
+SELECT
+attribute_type,
+display_name,
+COUNT(DISTINCT listing_id) as listing_count,
+SUM(past_year_gms) AS listing_gms,
+1 as dummy
+FROM `etsy-data-warehouse-prod.knowledge_base.listing_interests`
+JOIN `etsy-data-warehouse-prod.rollups.active_listing_basics` USING(listing_id)
+WHERE _date = date_sub(current_date(), interval 1 day) 
+      AND score >=0.05
+      AND attribute_type = 'Style'
+GROUP BY 1,2
+)
+
+SELECT
+attribute_type,
+display_name,
+listing_count / total_active_listing_count as listing_gms_coverage,
+listing_gms / total_active_listing_gms as listing_gms_coverage
+FROM listing_level
+JOIN overall USING (dummy)
+;
+
 
 ################### OVERALL CONFIDENCE SCORE STATS #########################
 
@@ -570,7 +608,7 @@ JOIN `etsy-data-warehouse-dev.nlao.buyer_concept_union` USING (user_id)
 GROUP BY 1,2,3
 ;
 
--- BUYER VISIT BIN (AVG SCORE)
+-- VISIT SEGMENT (AVG SCORE)
 WITH model_audience AS (
 SELECT 
 user_id,
@@ -601,7 +639,7 @@ JOIN `etsy-data-warehouse-dev.nlao.buyer_concept_union` USING (user_id)
 GROUP BY 1,2
 ;
 
--- BUYER VISIT BIN (SCORE DISTRIBUTION)
+-- VISIT SEGMENT (SCORE DISTRIBUTION)
 WITH model_audience AS (
 SELECT 
 user_id,
@@ -619,6 +657,7 @@ GROUP BY 1
 )
 SELECT
 attribute_type,
+ROUND(score,1) AS score_bin,
 CASE
         WHEN visit_day_count BETWEEN  1 AND 10 THEN '01-10D'
         WHEN visit_day_count BETWEEN 11 AND 20 THEN '11-20D'
@@ -626,9 +665,148 @@ CASE
         WHEN visit_day_count BETWEEN 31 AND 40 THEN '31-40D'
         WHEN visit_day_count BETWEEN 41 AND 50 THEN '41-50D'
   END AS visit_day_bin,
-ROUND(score,1) AS score_bin,
 COUNT(DISTINCT user_id) AS user_count
 FROM visit_count bb
+JOIN `etsy-data-warehouse-dev.nlao.buyer_concept_union` USING (user_id)
+GROUP BY 1,2,3
+;
+
+-- LISTING VIEW BIN
+WITH model_audience AS (
+SELECT 
+user_id,
+visit_id
+FROM `etsy-data-warehouse-prod.weblog.recent_visits` 
+WHERE _date BETWEEN "2022-04-23" AND "2022-05-23"
+      AND user_id IS NOT NULL
+),
+listing_views AS (
+SELECT
+user_id,
+count(distinct listing_id) AS listing_view_distinct,
+count(listing_id) AS listing_view
+FROM model_audience
+JOIN `etsy-data-warehouse-prod.analytics.listing_views`  USING (visit_id)
+WHERE _date BETWEEN "2022-02-23" AND "2022-05-23"
+GROUP BY 1
+)
+SELECT
+attribute_type,
+round(score,1) as score,
+CASE
+        WHEN listing_view_distinct BETWEEN  1 AND 10 THEN '01-10'
+        WHEN listing_view_distinct BETWEEN 11 AND 20 THEN '11-20'
+        WHEN listing_view_distinct BETWEEN 21 AND 30 THEN '21-30'
+        WHEN listing_view_distinct BETWEEN 31 AND 40 THEN '31-40'
+        WHEN listing_view_distinct BETWEEN 41 AND 50 THEN '41-50'
+        ELSE '50+'
+      END AS listing_view_distinct_bin, 
+count(distinct user_id) as user_count,
+FROM listing_views 
+JOIN `etsy-data-warehouse-dev.nlao.buyer_concept_union` USING (user_id)
+GROUP BY 1,2,3
+;
+
+-- INTERACTION: LISTING VIEW BIN
+WITH model_audience AS (
+SELECT 
+user_id,
+visit_id
+FROM `etsy-data-warehouse-prod.weblog.recent_visits` 
+WHERE _date BETWEEN "2022-04-23" AND "2022-05-23"
+      AND user_id IS NOT NULL
+),
+listing_views AS (
+SELECT
+user_id,
+count(distinct listing_id) AS listing_view_distinct,
+count(listing_id) AS listing_view
+FROM model_audience
+JOIN `etsy-data-warehouse-prod.analytics.listing_views`  USING (visit_id)
+WHERE _date BETWEEN "2022-02-23" AND "2022-05-23"
+GROUP BY 1
+)
+SELECT
+attribute_type,
+round(score,1) as score,
+CASE
+        WHEN listing_view_distinct BETWEEN  1 AND 10 THEN '01-10'
+        WHEN listing_view_distinct BETWEEN 11 AND 20 THEN '11-20'
+        WHEN listing_view_distinct BETWEEN 21 AND 30 THEN '21-30'
+        WHEN listing_view_distinct BETWEEN 31 AND 40 THEN '31-40'
+        WHEN listing_view_distinct BETWEEN 41 AND 50 THEN '41-50'
+        ELSE '50+'
+      END AS listing_view_distinct_bin, 
+count(distinct user_id) as user_count
+FROM listing_views 
+JOIN `etsy-data-warehouse-dev.nlao.buyer_concept_union` USING (user_id)
+GROUP BY 1,2,3
+;
+
+-- INTERACTION: PURCHASES
+WITH model_audience AS (
+SELECT 
+user_id,
+visit_id
+FROM `etsy-data-warehouse-prod.weblog.recent_visits` 
+WHERE _date BETWEEN "2022-04-23" AND "2022-05-23"
+      AND user_id IS NOT NULL
+),
+purchase_past_3_months AS (
+SELECT
+m.user_id,
+count(distinct transaction_id) AS transaction_count,
+FROM model_audience m
+JOIN `etsy-data-warehouse-prod.transaction_mart.transactions_visits` s USING (user_id)
+WHERE date BETWEEN "2022-02-23" AND "2022-05-23"
+GROUP BY 1
+)
+SELECT
+attribute_type,
+round(score,1) as score,
+CASE
+        WHEN transaction_count BETWEEN  1 AND 40 THEN CAST(transaction_count AS STRING)
+        WHEN transaction_count BETWEEN 41 AND 60 THEN '41-60'
+        WHEN transaction_count BETWEEN 61 AND 80 THEN '61-80'
+        WHEN transaction_count BETWEEN 81 AND 100 THEN '81-100'
+        ELSE '100+'
+      END AS transaction_count,  
+count(distinct user_id) as user_count
+FROM purchase_past_3_months bb
+JOIN `etsy-data-warehouse-dev.nlao.buyer_concept_union` USING (user_id)
+GROUP BY 1,2,3
+;
+
+-- INTERACTION: SEARCH QUERY
+WITH model_audience AS (
+SELECT 
+user_id,
+visit_id
+FROM `etsy-data-warehouse-prod.weblog.recent_visits` 
+WHERE _date BETWEEN "2022-04-23" AND "2022-05-23"
+      AND user_id IS NOT NULL
+),
+search_queries AS (
+SELECT
+m.user_id,
+count(distinct query) AS query_count,
+FROM model_audience m
+JOIN `etsy-data-warehouse-prod.search.events` s ON  m.user_id = cast(s.user_id as int64)
+WHERE _date BETWEEN "2022-02-23" AND "2022-05-23"
+GROUP BY 1
+)
+SELECT
+attribute_type,
+round(score,1) as score,
+CASE
+        WHEN query_count BETWEEN  1 AND 40 THEN CAST(query_count AS STRING)
+        WHEN query_count BETWEEN 41 AND 60 THEN '41-60'
+        WHEN query_count BETWEEN 61 AND 80 THEN '61-80'
+        WHEN query_count BETWEEN 81 AND 100 THEN '81-100'
+        ELSE '100+'
+      END AS query_count_bin,  
+count(distinct user_id) as user_count
+FROM search_queries bb
 JOIN `etsy-data-warehouse-dev.nlao.buyer_concept_union` USING (user_id)
 GROUP BY 1,2,3
 ;
