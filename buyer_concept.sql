@@ -79,7 +79,7 @@ CASE
         WHEN round(cast(round(p.past_year_gms,20) as numeric),2) BETWEEN 500.01 AND 750.0 THEN '$500-$750'
         WHEN round(cast(round(p.past_year_gms,20) as numeric),2) BETWEEN 750.01 AND 1000.0 THEN '$750-$1000'
         WHEN round(cast(round(p.past_year_gms,20) as numeric),2) > 1000 THEN '$1000+'
-        ELSE '$0'
+        ELSE cast(round(cast(round(p.past_year_gms,20) as numeric),2) as string)
         END AS buyer_past_year_gms_bin,
 FROM `etsy-data-warehouse-prod.rollups.buyer_basics` p
 )
@@ -544,11 +544,35 @@ WHERE rk=1
 ################### CONFIDENCE SCORE DISTRIBUTION #########################
 
 -- OVERALL
+with union_table AS (SELECT 
+user_id,
+display_name,
+score,
+attribute_type
+FROM `etsy-data-warehouse-prod.knowledge_base.buyer_hobbies`
+WHERE _date = '2022-05-23' 
+UNION ALL
+SELECT 
+user_id,
+display_name,
+score,
+attribute_type
+FROM `etsy-data-warehouse-prod.knowledge_base.buyer_favorite_animals`
+WHERE _date = '2022-05-23'
+UNION ALL
+SELECT 
+user_id,
+display_name,
+score,
+attribute_type
+FROM `etsy-data-warehouse-prod.knowledge_base.buyer_styles`
+WHERE _date = '2022-05-23'
+)
 SELECT
 attribute_type,
 ROUND(score,1) AS score_round,
-COUNT(DISTINCT user_id) as user_count
-FROM `etsy-data-warehouse-dev.nlao.buyer_concept_union`
+COUNT(*) as count
+FROM union_table
 GROUP BY 1,2
 ORDER BY 1,2 ASC
 ;
