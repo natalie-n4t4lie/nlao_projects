@@ -1,3 +1,78 @@
+--## CONCEPT DOMAIN VALUE LEVEL UNIQUNESS##
+CREATE OR REPLACE TABLE `etsy-data-warehouse-dev.nlao.concept_domain_value_uniquness` AS (
+WITH listing_concepts AS (
+SELECT
+  listing_id,
+  'Category Full Path' as concept_domain,
+  full_path as value
+FROM `etsy-data-warehouse-prod.materialized.listing_taxonomy`
+UNION ALL
+SELECT
+  pc.listing_id,
+  'Perso Custo' AS concept_domain,
+  pc.full_label AS value
+FROM `etsy-data-warehouse-prod.knowledge_base.perso_custo_label_level` pc
+WHERE pc.full_label != 'No Label'
+UNION ALL
+SELECT
+  li.listing_id,
+  li.attribute_type AS conecept_domain,
+  display_name AS value
+FROM `etsy-data-warehouse-prod.knowledge_base.listing_interests` li
+WHERE _date = date_sub(current_date(), INTERVAL 1 DAY) AND score >=0.05
+),
+active_listings AS (
+SELECT
+l.listing_id,
+l.concept_domain,
+l.value
+FROM `etsy-data-warehouse-prod.rollups.active_listing_basics` alb
+LEFT JOIN listing_concepts l
+  ON alb.listing_id = l.listing_id
+),
+active_listing AS (
+SELECT
+COUNT(distinct listing_id) AS active_listing_count,
+1 as dummy
+FROM `etsy-data-warehouse-prod.rollups.active_listing_basics` alb
+),
+concept_domain_listing_count AS (
+SELECT
+concept_domain,
+count(distinct listing_id) AS domain_listing_count,
+1 as dummy
+FROM active_listings
+GROUP BY 1
+),
+concept_value_listing_count AS (
+SELECT
+concept_domain,
+value,
+count(distinct listing_id) AS value_listing_count,
+1 as dummy
+FROM active_listings
+GROUP BY 1,2
+)
+SELECT
+distinct b.concept_domain,
+a.value,
+b.domain_listing_count,
+a.value_listing_count,
+b.domain_listing_count / alc.active_listing_count AS concept_domain_coverage,
+a.value_listing_count / alc.active_listing_count AS concept_value_coverage,
+a.value_listing_count / b.domain_listing_count AS value_coverage_within_domain,
+ntile(100) OVER (ORDER BY coalesce(value_listing_count,0) DESC) as concept_value_percentile,
+ntile(20) OVER (ORDER BY coalesce(value_listing_count,0) DESC) as concept_value_vigintile,
+ntile(10) OVER (ORDER BY coalesce(value_listing_count,0) desc) as concept_value_decile,
+ntile(5) OVER (ORDER BY coalesce(value_listing_count,0) DESC) as concept_value_quintile
+FROM concept_value_listing_count a
+JOIN concept_domain_listing_count b
+ON a.concept_domain = b.concept_domain
+JOIN active_listing alc
+ON a.dummy = alc.dummy
+);
+
+
 # CREATE TABLE THAT CONSOLIDATE ALL KB CONCEPTS
 CREATE OR REPLACE TABLE `etsy-data-warehouse-dev.nlao.listing_concepts_uniqueness` AS (
 WITH listing_concepts AS (
