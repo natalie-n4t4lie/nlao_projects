@@ -232,11 +232,61 @@ FROM candidate
 GROUP BY 1,2,3,4,5,6,7,8
 ;
 
+
+SELECT
+SUM(past_year_gms),
+SUM(CASE WHEN mapped_user_id IN (SELECT user_id FROM `etsy-data-warehouse-dev.nlao.buyer_concept_union`) THEN past_year_gms ELSE NULL END)
+FROM `etsy-data-warehouse-prod.rollups.buyer_basics`
+;
+
 --======================--
 --|Show Purchase Signal|--
 --======================--
 -- How many percent of users show a purchase signal before making a purchase? Whether buyers viewed the category purchased in the past 3 months before purchase? 
-
+WITH first_visit AS (
+SELECT
+mapped_user_id,
+MIN(_date) AS first_visit_day
+FROM `etsy-data-warehouse-dev.nlao.checkout_buyers_listing_view`
+GROUP BY 1
+),
+--FLAG WHETHER USER BOUGHT VIEWED CATEGORY
+purchase_view_cat AS (
+SELECT
+b.mapped_user_id,
+purchase_category,
+transaction_dollar,
+MAX(CASE WHEN purchase_category = view_category AND lv._date < '2022-08-01' THEN 1 ELSE 0 END) AS purchase_previously_view_category_0801,
+MAX(CASE WHEN purchase_category = view_category AND lv._date < '2022-07-31' THEN 1 ELSE 0 END) AS purchase_previously_view_category_0731,
+MAX(CASE WHEN purchase_category = view_category AND lv._date < '2022-07-30' THEN 1 ELSE 0 END) AS purchase_previously_view_category_0730
+FROM `etsy-data-warehouse-dev.nlao.checkout_buyers` b
+JOIN `etsy-data-warehouse-dev.nlao.checkout_buyers_listing_view` lv
+    ON b.mapped_user_id = lv.mapped_user_id
+GROUP BY 1,2,3
+),
+final AS (
+SELECT
+f.mapped_user_id,
+p.purchase_category,
+p.transaction_dollar,
+CASE WHEN first_visit_day = '2022-08-01' THEN 0 ELSE 1 END AS visit_before_purchase,
+COALESCE(p.purchase_previously_view_category_0801,0) AS purchase_previously_view_category_0801,
+COALESCE(p.purchase_previously_view_category_0731,0) AS purchase_previously_view_category_0731,
+COALESCE(p.purchase_previously_view_category_0730,0) AS purchase_previously_view_category_0730,
+FROM first_visit f
+LEFT JOIN purchase_view_cat p 
+    ON f.mapped_user_id = p.mapped_user_id
+)
+SELECT 
+visit_before_purchase,
+purchase_previously_view_category_0801,
+purchase_previously_view_category_0731,
+purchase_previously_view_category_0730,
+COUNT(mapped_user_id) AS user_count,
+SUM(transaction_dollar) AS transaction_dollar
+FROM final
+GROUP BY 1,2,3,4
+;
 
 
 --=====================================================--
