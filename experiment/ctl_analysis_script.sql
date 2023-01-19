@@ -266,7 +266,3 @@ ORDER BY 1,2,3,4
 --Browser segmentation: Segment by Perso Journey Segment
 --For a given browser, join their first bucketed visit to rollups.perso_segment_visits to assign segments
 --Then segment by the variables "we_know", "visit_recency", and "browse_buy" and calculate browser level engagement metrics.s
-
-
-
-
