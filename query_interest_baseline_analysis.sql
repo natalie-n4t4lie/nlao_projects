@@ -419,3 +419,38 @@ GROUP BY 1,2,3,4
 ;
 
 
+-- SEARCH INGRESS EXPERIMENT POWER ANALYSIS
+  -- INTEREST LABEL >= 7 VISIT TRAFFIC
+WITH cte AS (
+SELECT
+  clean_query,
+  COUNT(DISTINCT CASE WHEN score >=0.1 THEN display_name ELSE NULL END) AS concept_01_count
+FROM `etsy-data-warehouse-dev.nlao.query_interests`
+GROUP BY 1
+)
+SELECT
+  count(distinct visit_id) AS visit_traffic,
+FROM `etsy-data-warehouse-prod.search.query_sessions_new` q
+JOIN cte c 
+  ON q.query_raw = c.clean_query 
+WHERE _date ='2022-01-01' AND concept_01_count>=7
+;--17941
+
+-- GROUPING LABELS TOGETHER WITHIN A VISIT, INTEREST LABEL >= 7 VISIT TRAFFIC
+WITH cte AS (
+SELECT  
+visit_id,
+COUNT(DISTINCT CASE WHEN score >=0.1 THEN display_name ELSE NULL END) AS concept_label_01_count,
+FROM `etsy-data-warehouse-prod.search.query_sessions_new` q
+LEFT JOIN `etsy-data-warehouse-dev.nlao.query_interests` qi
+  ON q.query_raw = qi.clean_query
+WHERE q._date = '2022-01-01' AND query_raw IS NOT NULL
+GROUP BY 1
+)
+SELECT
+COUNT(visit_id) AS visit_count
+FROM cte
+WHERE concept_label_01_count >= 7
+;-- 47909
+  -- http://www.experimentcalculator.com/#lift=1&conversion=6.44&confidence=95&visits=47909&percentage=50&power=80
+
