@@ -271,6 +271,7 @@ create or replace table `etsy-data-warehouse-dev.nlao.quality_model_output` as
 			`etsy-data-warehouse-dev.nlao.quality_model_output_runs`
 	)
 	select
+		CURRENT_DATE() as run_date,
 		a.*
 		,std_dev
 	from
