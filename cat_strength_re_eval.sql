@@ -476,21 +476,26 @@ LIMIT 100
 -- OVERALL
 SELECT
 query,
-COUNT(*) AS visits
+COUNT(*) AS visits,
+sum(total_gms) AS gms
 FROM `etsy-data-warehouse-dev.awaagner.hl_gift_visits_classified` g
 JOIN `etsy-data-warehouse-prod.search.query_sessions_new` q
   ON g.visit_id = q.visit_id
 WHERE q._date >= date_sub(current_date, interval 12 month) 
   AND gift_visit = 1
+	AND query != "gift" 
+	AND length(query) > 2
+	AND g.landing_event = "market"
 GROUP BY 1
 ORDER BY 2 DESC
-LIMIT 10000
+LIMIT 100
 ;
 
 -- SEO
 SELECT
 query,
 COUNT(*) AS visits,
+sum(total_gms) AS gms
 FROM `etsy-data-warehouse-dev.awaagner.hl_gift_visits_classified` b
 JOIN `etsy-data-warehouse-prod.search.query_sessions_new` q
   ON b.visit_id = q.visit_id
@@ -506,15 +511,19 @@ WHERE
   q._date >= date_sub(current_date, interval 12 month) 
   AND channel_dimensions.tactic_high_level is null
   AND b.gift_visit = 1
+	AND query != "gift"
+	AND length(query) > 2
+	AND landing_event = "market"
 GROUP BY 1
 ORDER BY 2 DESC
-LIMIT 10000
+LIMIT 100
 ;
 
 -- SEM 
 SELECT
 query,
 COUNT(*) AS visits,
+sum(total_gms) AS gms
 FROM `etsy-data-warehouse-dev.awaagner.hl_gift_visits_classified` b
 JOIN `etsy-data-warehouse-prod.search.query_sessions_new` q
   ON b.visit_id = q.visit_id
@@ -530,11 +539,13 @@ WHERE
   q._date >= date_sub(current_date, interval 12 month) 
   AND channel_dimensions.tactic_high_level like 'SEM%'
   AND b.gift_visit = 1
+	AND query != "gift"
+	AND length(query) > 2
+	AND landing_event = "market"
 GROUP BY 1
 ORDER BY 2 DESC
-LIMIT 10000
+LIMIT 100
 ;
-
 
 
 
