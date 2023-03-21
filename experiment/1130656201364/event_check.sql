@@ -7,7 +7,7 @@ count(*) AS visit_count
 from
 `etsy-visit-pipe-prod.canonical.visit_id_beacons` a
 where
-date(_partitiontime) <= current_date
+date(_partitiontime) BETWEEN DATE_SUB(current_date, INTERVAL 14 DAY) AND CURRENT_DATE
 and beacon.event_name = "recommendations_module_delivered"
 and (select value from unnest(beacon.properties.key_value) where key = "module_placement") like "%ctl_%"
 group by 1
@@ -20,7 +20,7 @@ count(*) AS visit_count
 from
 `etsy-visit-pipe-prod.canonical.visit_id_beacons` a
 where
-date(_partitiontime) <= current_date
+date(_partitiontime) BETWEEN DATE_SUB(current_date, INTERVAL 14 DAY) AND CURRENT_DATE
 and beacon.event_name = "recommendations_module_seen"
 and (select value from unnest(beacon.properties.key_value) where key = "module_placement") like "%boe_homescreen_ctl_prior_purchase%"
 group by 1
@@ -33,7 +33,7 @@ count(*) AS visit_count
 from
 `etsy-visit-pipe-prod.canonical.visit_id_beacons` a
 where
-date(_partitiontime) <= current_date
+date(_partitiontime) BETWEEN DATE_SUB(current_date, INTERVAL 14 DAY) AND CURRENT_DATE
 and beacon.event_name = "homescreen_tapped_listing"
 and (select value from unnest(beacon.properties.key_value) where key = "content_source") like "%boe_homescreen_ctl_prior_purchase%"
 group by 1
