@@ -28,13 +28,13 @@ group by 1
 
 -- TAP MODULE EVENT CHECK
 SELECT
-split((select value from unnest(beacon.properties.key_value) where key = "content_source"),"-")[offset(0)] AS content_source,
+(select value from unnest(beacon.properties.key_value) where key = "module_placement") AS module_placement,
 count(*) AS visit_count
 from
 `etsy-visit-pipe-prod.canonical.visit_id_beacons` a
 where
 date(_partitiontime) BETWEEN DATE_SUB(current_date, INTERVAL 14 DAY) AND CURRENT_DATE
-and beacon.event_name = "homescreen_tapped_listing"
-and (select value from unnest(beacon.properties.key_value) where key = "content_source") like "%boe_homescreen_ctl_prior_purchase%"
+and beacon.event_name = "landing_page_link_tapped"
+and (select value from unnest(beacon.properties.key_value) where key = "module_placement") like "%boe_homescreen_ctl_prior_purchase%"
 group by 1
 ;
