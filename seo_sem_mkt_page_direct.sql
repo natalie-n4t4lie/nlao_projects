@@ -191,5 +191,16 @@ where channel in ('SEO','SEM')
 group by 1,2,3
 ;
 
-
+SELECT  
+query,
+app_platform,
+channel,
+count(distinct visit_id) as distinct_visits
+FROM `etsy-data-warehouse-dev.nlao.market_page_visit_p1y`
+where query like "%rug%" 
+-- and channel in ("SEO","SEM")
+group by 1,2,3
+having count(distinct visit_id)>100
+order by 4 desc
+;
 
