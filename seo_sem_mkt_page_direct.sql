@@ -16,7 +16,7 @@ SELECT
   count(v.visit_id) AS visit_count
 FROM `etsy-data-warehouse-prod.weblog.visits` v
 WHERE 
-  v._date BETWEEN DATE_SUB(CURRENT_DATE, INTERVAL 1 YEAR) AND CURRENT_DATE
+  v._date BETWEEN DATE_SUB(CURRENT_DATE, INTERVAL 1 MONTH) AND CURRENT_DATE
   and v.is_admin_visit != 1 --remove admin
 	and (v.user_id is null or user_id not in (
 		select user_id from `etsy-data-warehouse-prod.rollups.seller_basics` where active_seller_status = 1)
@@ -72,8 +72,8 @@ CREATE OR REPLACE TABLE `etsy-data-warehouse-dev`.nlao.cat_page_visit_p1y AS (
   left join `etsy-data-warehouse-prod.visit_mart.visits_transactions` t
     on v.visit_id = t.visit_id
     and v._date = t._date
-  WHERE v._DATE BETWEEN DATE_SUB(CURRENT_DATE, INTERVAL 12 MONTH) AND CURRENT_DATE
-      AND e._DATE BETWEEN DATE_SUB(CURRENT_DATE, INTERVAL 12 MONTH) AND CURRENT_DATE
+  WHERE v._DATE BETWEEN DATE_SUB(CURRENT_DATE, INTERVAL 1 MONTH) AND CURRENT_DATE
+      AND e._DATE BETWEEN DATE_SUB(CURRENT_DATE, INTERVAL 1 MONTH) AND CURRENT_DATE
       AND is_admin_visit !=1 --remove admin
 	    AND (v.user_id is null or v.user_id not in (
 		select user_id from `etsy-data-warehouse-prod.rollups.seller_basics` where active_seller_status = 1)
@@ -150,8 +150,8 @@ CREATE OR REPLACE TABLE `etsy-data-warehouse-dev`.nlao.market_page_visit_p1y AS 
   left join `etsy-data-warehouse-prod.visit_mart.visits_transactions` t
     on v.visit_id = t.visit_id
     and v._date = t._date
-  WHERE v._DATE BETWEEN DATE_SUB(CURRENT_DATE, INTERVAL 12 MONTH) AND CURRENT_DATE
-      AND e._DATE BETWEEN DATE_SUB(CURRENT_DATE, INTERVAL 12 MONTH) AND CURRENT_DATE
+  WHERE v._DATE BETWEEN DATE_SUB(CURRENT_DATE, INTERVAL 1 MONTH) AND CURRENT_DATE
+      AND e._DATE BETWEEN DATE_SUB(CURRENT_DATE, INTERVAL 1 MONTH) AND CURRENT_DATE
       AND is_admin_visit !=1 --remove admin
 	    AND (v.user_id is null or v.user_id not in (
 		select user_id from `etsy-data-warehouse-prod.rollups.seller_basics` where active_seller_status = 1)
@@ -180,7 +180,7 @@ with cte AS (
 	group by 1,2,3,4,5
 )
 select
-		full_path,
+    full_path,
     category,
     app_platform,
     count(distinct visit_id) as landings,
