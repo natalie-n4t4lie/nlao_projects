@@ -1,4 +1,7 @@
--- help with order submitted by order status
+-- Code for [Analytics] Experiment retro - Purchases & Receipt EDD (https://docs.google.com/document/d/1U8aBQq1vTr7SSjP-Ir2YgI6nDHy86K4oiu87r9Mvdwk/edit#)
+
+
+-- help with order submitted by order status - iOS
 with bucketed_users as (
   select
     v.user_id,
@@ -33,7 +36,7 @@ group by 1,2,3,4,5
 order by 1,2,3,4,5
 ;
 
--- tracking order by order state
+-- tracking order by order state - iOS
 WITH tracking_details AS (
 SELECT
 DISTINCT 
@@ -66,4 +69,6 @@ JOIN `etsy-data-warehouse-prod.rollups.receipt_shipping_basics` s
 GROUP BY 1,2
 ORDER BY 1,2
 ;
+
+-- other stats comes from the linked query in https://docs.google.com/spreadsheets/d/19XWmbY6YIY277kcRPZhz9o4VUUhttG5ancjt1nfZARE/edit#gid=0
 
