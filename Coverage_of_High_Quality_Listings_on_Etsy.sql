@@ -1,181 +1,238 @@
-CREATE OR REPLACE TABLE `etsy-data-warehouse-dev.nlao.landing_p365` as (
-select
-	DISTINCT
-	b._date,
-	b.visit_id,
-	b.user_id,
-	b.landing_event,
-	b.region,
-	b.landing_event_url,
-	case when landing_event = "market" then lower(regexp_replace(regexp_replace(regexp_substr(landing_event_url, "market/([^?]*)"), "_", " "), "\\%27", "")) else null end as landing_market_query,
-	case when landing_event like "view%listing%" then safe_cast(regexp_substr(landing_event_url, "listing\\/(\\d*)") as int64) else null end as landing_listing_id,
-	case when landing_event = "search" then regexp_replace(regexp_replace(regexp_substr(lower(landing_event_url), "q=([a-z0-9%+]+)"),"\\\\+"," "),"%20"," ") else null end as landing_search_query,
-  case when landing_event = "category_page" then regexp_replace(split(regexp_substr(landing_event_url, "\\/c\\/([^\\?|\\&]+)"),"/")[safe_offset(0)],"-","_") end as landing_cat_page_top_cat,
-	case when landing_event = "category_page" then regexp_replace(split(regexp_substr(landing_event_url, "\\/c\\/([^\\?|\\&]+)"),"/")[safe_offset(1)],"-","_") end as landing_cat_page_second_cat,
-  case when landing_event = "category_page" then regexp_replace(split(regexp_substr(landing_event_url, "\\/c\\/([^\\?|\\&]+)"),"/")[safe_offset(2)],"-","_") end as landing_cat_page_third_cat,
-	case when channel_dimensions.tactic_high_level is null then "SEO"
-  when channel_dimensions.tactic_high_level in ('Email - Marketing','Push - Marketing') then 'CRM'
-  when channel_dimensions.tactic_high_level like 'SEM%' then 'SEM'
-  when channel_dimensions.tactic_high_level like 'PLA%' then 'PLA'
-  else 'Display/Social'
-  end as channel,
-from
-	`etsy-data-warehouse-prod.weblog.visits` b
-LEFT JOIN `etsy-data-warehouse-prod.buyatt_mart.channel_dimensions` AS channel_dimensions 
-	ON lower(b.utm_campaign) = lower(channel_dimensions.utm_campaign)
-      and lower(b.utm_medium) = lower(channel_dimensions.utm_medium)
-      and lower((case when b.top_channel = 'social_promoted' then 'social_owned'
-          when b.top_channel = 'social_organic' then 'social_earned'
-          else b.top_channel end)) = lower(channel_dimensions.top_channel)
-      and lower(b.second_channel) = lower(channel_dimensions.second_channel)
-      and lower(b.third_channel) = lower(channel_dimensions.third_channel)
-where 
-	b._date >= date_sub(current_date, interval 12 month)
-	and b.platform in ("boe","desktop","mobile_web") --remove soe
-	and b.is_admin_visit != 1 --remove admin
-	and (b.user_id is null or user_id not in (
-		select user_id from `etsy-data-warehouse-prod.rollups.seller_basics` where active_seller_status = 1)
-		) --remove sellers
-	AND (landing_event IN ("search","category_page","market") OR landing_event LIKE "view%listing%")
-);
+- This SQL files are the code to get metrics shown in Coverage of High Quality Listings on Etsy (https://docs.google.com/presentation/d/1tqszbvFVzl46fAlnXUm4wFjklPjpui0Y_277SE0oXZg/edit#slide=id.g173525d2c0d_3_0)
+-- To run this code, ask nlao@etsy.com to get access to `etsy-data-warehouse-dev.nlao.quality_model_output`
 
--- Landing event is a listing with “gift” in the title
--- Landing on market page where the query matches the is_gift definition outlined here
--- Landing on an Editor’s Picks page with a title containing “gift”
-CREATE OR REPLACE TABLE `etsy-data-warehouse-dev.nlao.gifting_landing_p365` as (
-SELECT DISTINCT
-  v._date,
-	v.visit_id,
-	v.user_id,
-	v.landing_event,
-	v.region,
-	v.landing_event_url,
-	channel,
-  v.landing_market_query,
-  v.landing_listing_id,
-	l.title,
-  lower(regexp_replace(regexp_replace(regexp_substr(landing_event_url, "featured/([^?]*)"), "-", " "), "\\%27", "")) AS landing_feature_page,
-	coalesce(v.landing_market_query,l.title,lower(regexp_replace(regexp_replace(regexp_substr(landing_event_url, "featured/([^?]*)"), "-", " "), "\\%27", ""))) AS keywords,
-  1 AS is_gift
-FROM `etsy-data-warehouse-dev.nlao.landing_p365` v
-LEFT JOIN `etsy-data-warehouse-prod.etsy_shard.listings` l
-	ON v.landing_listing_id = l.listing_id
-LEFT JOIN `etsy-data-warehouse-prod.rollups.query_level_metrics` q
-	ON v.landing_market_query = q.query
-WHERE 
-regexp_contains(l.title, '(\?i)\\bgift|\\bfor (\\bhim|\\bher|\\bmom|\\bdad|\\bmother|\\bfather|\\bdaughter|\\bson|\\bwife|\\bhusband|\\bpartner|\\baunt|\\buncle|\\bniece|\\bnephew|\\bfiance|\\bcousin|\\bin law|\\bboyfriend|\\bgirlfriend|\\bgrand|\\bfriend|\\bbest friend)') --Landing event is a listing with “gift” in the title
-OR q.is_gift = 1 -- Landing on market page where the query matches the is_gift definition outlined here
-OR regexp_contains(lower(regexp_replace(regexp_replace(regexp_substr(landing_event_url, "featured/([^?]*)"), "-", " "), "\\%27", "")), '(\?i)\\bgift') -- Landing on an Editor’s Picks page with a title containing “gift”
-)
-;
+-- CURRENT STASH LISTING /GMS COVERAGE 
 
--- H&L DEFINITION
--- Landing event is a listing in the home & listing category, or in key art & collectibles subcategories
--- Landing on a market page with a query classified in the H&L or A&C subcategory taxonomies
--- Landing on a shop whose top category is H&L (can't classified subsub category on shop level, so not include in definition)
--- Landing on a H&L or relevant A&C category page
-
-CREATE OR REPLACE TABLE `etsy-data-warehouse-dev.nlao.hl_landing_p365` as (
-WITH
-distinct_taxo as (
-	select
-	distinct 
-	taxonomy_id,
-	top_level_cat_new,
-	second_level_cat_new,
-	third_level_cat_new,
-	case when top_level_cat_new = "home_and_living" then 1
-	when second_level_cat_new in ("prints", "collectibles", "painting", "drawing_and_illustration")  then 1
-	else 0 end as is_home
-	from `etsy-data-warehouse-prod.materialized.listing_categories_taxonomy`
-)
-, query_label as (
-	select
-		s.query,
-		t.top_level_cat_new,
-		t.second_level_cat_new,
-		t.third_level_cat_new,
-		t.is_home
-	from `etsy-data-warehouse-prod.search.query_sessions_new` s
-	join distinct_taxo t 
-	on s.classified_taxonomy_id = t.taxonomy_id
-	where _date >= date_sub(current_date, interval 12 month)
-)
+WITH stash_listing AS (
 SELECT 
-	v._date,
-	v.visit_id,
-	v.user_id,
-	v.landing_event,
-	v.region,
-	v.landing_event_url,
-	v.channel,
-  COALESCE(v.landing_cat_page_top_cat,t1.top_level_cat_new,q.top_level_cat_new) AS top_cat,
-  COALESCE(v.landing_cat_page_top_cat,t1.second_level_cat_new,q.second_level_cat_new) AS second_cat,
-  COALESCE(v.landing_cat_page_third_cat,t1.third_level_cat_new,q.third_level_cat_new) AS third_cat,
-  1 AS is_hl
-FROM `etsy-data-warehouse-dev.nlao.landing_p365` v
-LEFT JOIN query_label q
-	ON v.landing_market_query = q.query
-LEFT JOIN `etsy-data-warehouse-prod.listing_mart.listing_attributes` a
-  ON v.landing_listing_id = a.listing_id
-LEFT JOIN distinct_taxo t1
-  ON a.taxonomy_id = t1.taxonomy_id
-WHERE 
-q.is_home = 1 -- Landing on a market page with a query classified in the H&L or A&C subcategory taxonomies
-OR t1.is_home = 1 -- Landing event is a listing in the home & listing category, or in key art & collectibles subcategories
-OR v.landing_cat_page_top_cat = "home_and_living" OR v.landing_cat_page_second_cat IN ("prints", "collectibles", "painting", "drawing_and_illustration")--  Landing on a H&L or relevant A&C category page
+  DISTINCT listing_id
+@@ -27,6 +28,7 @@ FROM `etsy-data-warehouse-prod.rollups.active_listing_basics`
+------------------------------
+
+-- GMS AND LISTING COVERAGE
+
+WITH transactions AS (
+SELECT
+	listing_id
+@@ -57,6 +59,7 @@ ORDER BY 1
+;
+
+-- LISTING COVERAGE BY TOP/SECOND CATEGORY
+
+SELECT
+	CASE
+		WHEN quality_score < 0.3 THEN "1low"
+@@ -75,6 +78,7 @@ GROUP BY 1,2,3
+;
+
+-- CONVERSION RATE AND LISTING VIEWS
+
+WITH
+listing_views AS (
+SELECT
+@@ -108,6 +112,7 @@ ORDER BY 1
+;
+
+-- PRICE COMPARISON (MEDIAN AND MEAN)
+
+WITH taxo_price AS(
+SELECT
+	DISTINCT taxonomy_id
+@@ -160,6 +165,7 @@ GROUP BY 1,2,3,4
+-----------------------------------
+
+-- RECS DELIVERED BY MODULE
+
+SELECT
+	CASE
+		WHEN quality_score < 0.3 THEN "1low"
+@@ -303,21 +309,21 @@ GROUP BY 1,2,3,4,5,6,7
+
+-- TOP 10 VOLUME QUERIES
+SELECT 
+query
+	query
+FROM `etsy-data-warehouse-dev`.nlao.query_volume
+WHERE volume_ranking <= 10
+ORDER BY volume_ranking ASC
+;
+
+--TOP VOLUME QUERIES GMS SHARE
+SELECT
+SUM(gms) AS search_gms
+,SUM(CASE WHEN volume_ranking <= 10 THEN gms ELSE NULL END) AS top10_gms
+,SUM(CASE WHEN volume_ranking <= 100 THEN gms ELSE NULL END) AS top100_gms
+,SUM(CASE WHEN volume_ranking <= 1000 THEN gms ELSE NULL END) AS top1000_gms
+,SUM(CASE WHEN volume_ranking <= 10000 THEN gms ELSE NULL END) AS top10000_gms
+,SUM(CASE WHEN volume_ranking <= 100000 THEN gms ELSE NULL END) AS top100000_gms
+,SUM(CASE WHEN volume_ranking <= 1000000 THEN gms ELSE NULL END) AS top1000000_gms
+	SUM(gms) AS search_gms
+	,SUM(CASE WHEN volume_ranking <= 10 THEN gms ELSE NULL END) AS top10_gms
+	,SUM(CASE WHEN volume_ranking <= 100 THEN gms ELSE NULL END) AS top100_gms
+	,SUM(CASE WHEN volume_ranking <= 1000 THEN gms ELSE NULL END) AS top1000_gms
+	,SUM(CASE WHEN volume_ranking <= 10000 THEN gms ELSE NULL END) AS top10000_gms
+	,SUM(CASE WHEN volume_ranking <= 100000 THEN gms ELSE NULL END) AS top100000_gms
+	,SUM(CASE WHEN volume_ranking <= 1000000 THEN gms ELSE NULL END) AS top1000000_gms
+FROM `etsy-data-warehouse-dev.nlao.query_gms` g
+LEFT JOIN `etsy-data-warehouse-dev`.nlao.query_volume v
+	ON g.query_raw = v.query
+@@ -339,8 +345,8 @@ USING (listing_id)
+ AND state = 0 --active listings
 )
+SELECT
+CASE WHEN total_high_qual_listing_count <20 THEN CAST(total_high_qual_listing_count AS STRING) ELSE '20+' END AS total_high_qual_listing_count,
+COUNT(DISTINCT collection_id) AS total_collection_count,
+	CASE WHEN total_high_qual_listing_count <20 THEN CAST(total_high_qual_listing_count AS STRING) ELSE '20+' END AS total_high_qual_listing_count
+	,COUNT(DISTINCT collection_id) AS total_collection_count
+FROM eligible
+WHERE total_listing_count >= 4
+GROUP BY 1
+@@ -364,11 +370,9 @@ SELECT
+		ELSE '50+'
+	END AS favorite_count
+	,count(q.listing_id) AS listing_count
+FROM 
+	`etsy-data-warehouse-dev`.nlao.quality_model_output q
+JOIN
+ `etsy-data-warehouse-prod`.listing_mart.listing_counts l
+ON q.listing_id = l.listing_id
+FROM `etsy-data-warehouse-dev`.nlao.quality_model_output q
+JOIN `etsy-data-warehouse-prod`.listing_mart.listing_counts l
+	ON q.listing_id = l.listing_id
+GROUP BY 1,2
 ;
 
+@@ -377,6 +381,7 @@ GROUP BY 1,2
+--------------------------
+
+-- FULFILLMENT: HAVE EDD INFO
+
 SELECT
-top_cat,
-second_cat,
-third_cat,
-count(*) AS visits
-FROM `etsy-data-warehouse-dev.nlao.hl_landing_p365` g
+	CASE
+		WHEN quality_score < 0.3 THEN "1low"
+@@ -386,10 +391,9 @@ SELECT
+	END AS qual_bucket
+	,has_complete_edd
+	,COUNT(*) AS listing_count
+FROM
+	`etsy-data-warehouse-dev`.nlao.quality_model_output q
+	JOIN `etsy-data-warehouse-prod`.rollups.active_listing_shipping_costs t
+		ON q.listing_id = t.listing_id
+FROM `etsy-data-warehouse-dev`.nlao.quality_model_output q
+JOIN `etsy-data-warehouse-prod`.rollups.active_listing_shipping_costs t
+	ON q.listing_id = t.listing_id
+GROUP BY 1,2
+ORDER BY 1,2
+;
+@@ -409,16 +413,17 @@ SELECT
+	,COUNT(q.listing_id) AS listing_count
+FROM 
+  `etsy-data-warehouse-prod`.rollups.receipt_shipping_basics s
+	JOIN `etsy-data-warehouse-prod`.transaction_mart.all_transactions t
+		ON s.receipt_id = t.receipt_id
+	JOIN 	`etsy-data-warehouse-dev`.nlao.quality_model_output q
+		ON q.listing_id = t.listing_id
+JOIN `etsy-data-warehouse-prod`.transaction_mart.all_transactions t
+	ON s.receipt_id = t.receipt_id
+JOIN 	`etsy-data-warehouse-dev`.nlao.quality_model_output q
+	ON q.listing_id = t.listing_id
+WHERE	t.date BETWEEN CURRENT_DATE -180 AND CURRENT_DATE - 90
+GROUP BY 1,2
+ORDER BY 1,2
+;
+
+-- ACCEPT RETURN & EXCHANGE (SHOP LEVEL)
+
+SELECT
+	CASE
+		WHEN quality_score < 0.3 THEN "1low"
+@@ -429,13 +434,11 @@ SELECT
+	,s.return_policy_type
+	,s.accepts_returns
+	,COUNT(s.user_id) AS listing_count
+FROM 
+	`etsy-data-warehouse-dev`.nlao.quality_model_output q
+	JOIN 
+	`etsy-data-warehouse-prod`.rollups.active_listing_basics l
+		ON q.listing_id = l.listing_id
+	JOIN `etsy-data-warehouse-prod`.rollups.seller_basics s
+		ON l.user_id = s.user_id
+FROM `etsy-data-warehouse-dev`.nlao.quality_model_output q
+JOIN `etsy-data-warehouse-prod`.rollups.active_listing_basics l
+	ON q.listing_id = l.listing_id
+JOIN `etsy-data-warehouse-prod`.rollups.seller_basics s
+	ON l.user_id = s.user_id
 GROUP BY 1,2,3
-ORDER BY 4 DESC
+ORDER BY 1,2,3
+;
+@@ -451,10 +454,9 @@ SELECT
+	,s.accepts_exchanges
+	,s.accepts_returns
+	,COUNT(q.listing_id) AS listing_count
+FROM 
+	`etsy-data-warehouse-dev`.nlao.quality_model_output q
+FROM `etsy-data-warehouse-dev`.nlao.quality_model_output q
+JOIN `etsy-data-warehouse-prod`.rollups.active_listing_shipping_costs s
+		ON q.listing_id = s.listing_id
+	ON q.listing_id = s.listing_id
+GROUP BY 1,2,3
+ORDER BY 1,2,3
+;
+@@ -477,8 +479,7 @@ SELECT
+		ELSE 0 
+	END AS review_flag
+	,COUNT(DISTINCT listing_id) AS listing_count
+FROM 
+	`etsy-data-warehouse-dev`.nlao.quality_model_output q
+FROM `etsy-data-warehouse-dev`.nlao.quality_model_output q
+GROUP BY 1,2
+ORDER BY 1,2
+;
+@@ -494,11 +495,9 @@ SELECT
+	,SUM(has_review) AS review_count
+	,COUNT(DISTINCT q.listing_id) AS listing_count
+	,AVG(rating) AS avg_rating
+FROM 
+	`etsy-data-warehouse-dev`.nlao.quality_model_output q
+	JOIN 
+	`etsy-data-warehouse-prod`.rollups.transaction_reviews l
+		ON q.listing_id = l.listing_id
+FROM `etsy-data-warehouse-dev`.nlao.quality_model_output q
+JOIN `etsy-data-warehouse-prod`.rollups.transaction_reviews l
+	ON q.listing_id = l.listing_id
+WHERE DATE(transaction_date) BETWEEN CURRENT_DATE - 365 AND CURRENT_DATE
+GROUP BY 1
+ORDER BY 1
+@@ -514,11 +513,9 @@ SELECT
+	END AS qual_bucket
+	,rating
+	,COUNT(*) AS review_count
+FROM 
+	`etsy-data-warehouse-dev`.nlao.quality_model_output q
+	JOIN 
+	`etsy-data-warehouse-prod`.rollups.transaction_reviews l
+		ON q.listing_id = l.listing_id
+FROM `etsy-data-warehouse-dev`.nlao.quality_model_output q
+JOIN `etsy-data-warehouse-prod`.rollups.transaction_reviews l
+	ON q.listing_id = l.listing_id
+WHERE DATE(transaction_date) BETWEEN CURRENT_DATE - 365 AND CURRENT_DATE 
+			AND rating IS NOT NULL
+GROUP BY 1,2
+@@ -586,7 +583,7 @@ SELECT
+FROM `etsy-data-warehouse-dev.nlao.purchase` p
+JOIN `etsy-data-warehouse-prod.rollups.buyer_basics` b
+  ON p.mapped_user_id = b.mapped_user_id
+where DATE <= current_date - 90 
+WHERE DATE <= current_date - 90 
+GROUP BY 1,2
 ;
 
--- OVERALL
-SELECT
-query,
-COUNT(*) AS visits
-FROM `etsy-data-warehouse-dev.nlao.gifting_landing_p365` g
-JOIN `etsy-data-warehouse-prod.search.query_sessions_new` q
-  ON g.visit_id = q.visit_id
-WHERE q._date >= date_sub(current_date, interval 12 month) 
+@@ -621,7 +618,7 @@ CASE WHEN high_qual_concentration < 0.2 THEN '0-19'
+		END AS high_qual_concentration
+,count(user_id) AS user_count
+FROM high_qual_listing
+where high_qual_listing_count > 0
+WHERE high_qual_listing_count > 0
 GROUP BY 1
-ORDER BY 2 DESC
-LIMIT 10000
-;
-
--- SEO
-SELECT
-query,
-COUNT(*) AS visits,
-FROM `etsy-data-warehouse-dev.nlao.gifting_landing_p365` g
-JOIN `etsy-data-warehouse-prod.search.query_sessions_new` q
-  ON g.visit_id = q.visit_id
-WHERE 
-  q._date >= date_sub(current_date, interval 12 month) 
-  AND channel = "SEO"
-GROUP BY 1
-ORDER BY 2 DESC
-LIMIT 10000
-;
-
--- SEM 
-SELECT
-  query,
-  COUNT(*) AS visits
-FROM `etsy-data-warehouse-dev.nlao.gifting_landing_p365` g
-JOIN `etsy-data-warehouse-prod.search.query_sessions_new` q
-  ON g.visit_id = q.visit_id
-WHERE
-  q._date >= date_sub(current_date, interval 12 month)
-  AND channel = "SEM"
-GROUP BY 1
-ORDER BY 2 DESC
-LIMIT 10000
+ORDER BY 1 ASC
 ;
