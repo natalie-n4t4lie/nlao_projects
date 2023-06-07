@@ -1,3 +1,51 @@
+BEGIN 
+
+-- *** ENTER BELOW *** --
+DECLARE config_flag STRING default "beat.order_shipping_status_on_homescreen_v2.experiment"; -- enter experiment config flag
+DECLARE start_date DATE default "2023-05-04"; -- enter experiment start date
+DECLARE end_date DATE default "2023-05-14"; -- enter experiment end date
+
+-- Bucketed visits for each variant during the experiment's timeframe
+create temp table exp_visits
+	as
+	select 
+		distinct 
+    e.ab_test
+    ,e.ab_variant
+		,e.visit_id
+	from 
+		`etsy-data-warehouse-prod.catapult.ab_tests` e 
+	where 
+		e.ab_test = config_flag
+		AND e._date between start_date and end_date
+;
+
+SELECT
+ab_test,
+ab_variant,
+count(distinct v.visit_id) as visit_count,
+count(distinct CASE WHEN e.event_type = "home_ppmodule_see_receipt" THEN v.visit_id ELSE NULL END) as home_ppmodule_see_receipt_visit_count,
+count(distinct CASE WHEN e.event_type = "home_ppmodule_view" THEN v.visit_id ELSE NULL END) as home_ppmodule_view_visit_count,
+count(distinct CASE WHEN e.event_type = "home_ppmodule_view_tracking" THEN v.visit_id ELSE NULL END) as home_ppmodule_view_tracking_visit_count,
+count(distinct rv.browser_id) as browser_count,
+count(distinct CASE WHEN e.event_type = "home_ppmodule_see_receipt" THEN rv.browser_id ELSE NULL END) as home_ppmodule_see_receipt_browser_count,
+count(distinct CASE WHEN e.event_type = "home_ppmodule_view" THEN rv.browser_id ELSE NULL END) as home_ppmodule_view_browser_count,
+count(distinct CASE WHEN e.event_type = "home_ppmodule_view_tracking" THEN rv.browser_id ELSE NULL END) as home_ppmodule_view_tracking_browser_count,
+count(distinct rv.user_id) as user_count,
+count(distinct CASE WHEN e.event_type = "home_ppmodule_see_receipt" THEN rv.user_id ELSE NULL END) as home_ppmodule_see_receipt_user_count,
+count(distinct CASE WHEN e.event_type = "home_ppmodule_view" THEN rv.user_id ELSE NULL END) as home_ppmodule_view_user_count,
+count(distinct CASE WHEN e.event_type = "home_ppmodule_view_tracking" THEN rv.user_id ELSE NULL END) as home_ppmodule_view_tracking_user_count,
+FROM exp_visits v
+LEFT JOIN `etsy-data-warehouse-prod.weblog.events` e
+  ON v.visit_id = e.visit_id  
+LEFT JOIN `etsy-data-warehouse-prod.weblog.recent_visits` rv
+  ON v.visit_id = rv.visit_id
+WHERE rv._date between start_date and end_date
+GROUP BY 1,2
+;
+
+end;
+
 -- Experiment retro - Transactional Landing
 BEGIN 
 
