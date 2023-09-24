@@ -28,7 +28,7 @@ SELECT
 FROM
       `etsy-data-warehouse-prod.etsy_shard.seller_marketing_promotion`    smp
 INNER JOIN
-      `etsy-data-warehouse-prod.listing_mart.listings_active`             la
+      `etsy-data-warehouse-prod.rollups.active_listing_basics`             la
   ON
       smp.shop_id = la.shop_id
 WHERE
@@ -92,6 +92,8 @@ union all
 (select * from listing_specific)
 )
 ;
+
+
 
 ------------------------------------------------------------------------------------------------------------------------------------------------
 -- create a table that calculate days on sale in three scenarios:
@@ -245,29 +247,26 @@ ORDER BY
 CREATE OR REPLACE TABLE `etsy-data-warehouse-dev.nlao.total_days_on_sale_shop` AS (
 SELECT 
 DISTINCT 
-shop_id,
-COALESCE(ssd.total_day_on_sale,0) AS total_days_on_sale_all,
-COALESCE(ssds.total_day_on_sale,0) AS total_days_on_sale_storewide,
-COALESCE(ssdl.total_day_on_sale,0) AS total_days_on_sale_selectlisting,
-FROM `etsy-data-warehouse-prod.listing_mart.listings_active` l
+l.shop_id,
+COALESCE(ssd.total_days_on_sale,0) AS total_days_on_sale_all,
+COALESCE(ssds.total_days_on_sale,0) AS total_days_on_sale_storewide,
+COALESCE(ssdl.total_days_on_sale,0) AS total_days_on_sale_selectlisting,
+FROM `etsy-data-warehouse-prod.rollups.active_listing_basics` l
 LEFT JOIN shop_sale_days ssd ON l.shop_id = ssd.shop_id
 LEFT JOIN shop_sale_days_shop_wide ssds ON l.shop_id = ssds.shop_id
 LEFT JOIN shop_sale_days_selected_listing ssdl ON l.shop_id = ssdl.shop_id
 )
 ;
-END
-;
 
+BEGIN
 ------------------------------------------------------------------------------------------------------------------------------------------------
-
 -- listing sale day in a year
 -- create a table that calculate days on sale in three scenarios:
 -- 1. sale days for shopwide sale ONLY
 -- 2. sale days for selected listing ONLY
 -- 3. sale days for both shopwide sale and selected listing
-BEGIN
 
-CREATE TEMP TABLE shop_sale_days AS (
+CREATE TEMP TABLE listing_sale_days AS (
 WITH intervals AS (
   SELECT
     listing_id,
@@ -314,7 +313,7 @@ ORDER BY
 ;
 
 -- store-wide sale only
-CREATE TEMP TABLE shop_sale_days_shop_wide AS (
+CREATE TEMP TABLE listing_sale_days_shop_wide AS (
 WITH intervals AS (
   SELECT
     listing_id,
@@ -362,7 +361,7 @@ ORDER BY
 ;
 
 -- selected listing sale only
-CREATE TEMP TABLE shop_sale_days_selected_listing AS (
+CREATE TEMP TABLE listing_sale_days_selected_listing AS (
 WITH intervals AS (
   SELECT
     listing_id,
@@ -411,22 +410,60 @@ ORDER BY
 
 CREATE OR REPLACE TABLE `etsy-data-warehouse-dev.nlao.total_days_on_sale_listing` AS (
 SELECT DISTINCT
-listing,
-COALESCE(ssd.total_day_on_sale,0) AS total_days_on_sale_all,
-COALESCE(ssds.total_day_on_sale,0) AS total_days_on_sale_storewide,
-COALESCE(ssdl.total_day_on_sale,0) AS total_days_on_sale_selectlisting,
-FROM `etsy-data-warehouse-prod.listing_mart.listings_active` l
-LEFT JOIN shop_sale_days ssd ON l.listing_id = ssd.listing_id
-LEFT JOIN shop_sale_days_shop_wide ssds ON l.listing_id = ssds.listing_id
-LEFT JOIN shop_sale_days_selected_listing ssdl ON l.listing_id = ssdl.listing_id
+l.listing_id,
+COALESCE(ssd.total_days_on_sale,0) AS total_days_on_sale_all,
+COALESCE(ssds.total_days_on_sale,0) AS total_days_on_sale_storewide,
+COALESCE(ssdl.total_days_on_sale,0) AS total_days_on_sale_selectlisting,
+FROM `etsy-data-warehouse-prod.rollups.active_listing_basics` l
+LEFT JOIN listing_sale_days ssd ON l.listing_id = ssd.listing_id
+LEFT JOIN listing_sale_days_shop_wide ssds ON l.listing_id = ssds.listing_id
+LEFT JOIN listing_sale_days_selected_listing ssdl ON l.listing_id = ssdl.listing_id
 )
 ;
 END
 ;
 
+
 ------------------------------------------------------------------------------------------------------------------------------------------------
 
--- How often are shops setting up sales? For a given shop, how many days in a year was this shop on sale?
+-- Graph 1.1
+SELECT
+CASE WHEN total_days_on_sale_all = 0 THEN '0'
+      WHEN total_days_on_sale_all BETWEEN 1 AND 30 THEN '1-30'
+      WHEN total_days_on_sale_all BETWEEN 31 AND 60 THEN '31-60'
+      WHEN total_days_on_sale_all BETWEEN 61 AND 90 THEN '61-90'
+      WHEN total_days_on_sale_all BETWEEN 91 AND 180 THEN '91-180'
+      WHEN total_days_on_sale_all BETWEEN 181 AND 270 THEN '181-270'
+      ELSE '271+' END AS total_days_on_sale_all,
+CASE WHEN total_days_on_sale_storewide = 0 THEN '0'
+      WHEN total_days_on_sale_storewide BETWEEN 0 AND 30 THEN '1-30'
+      WHEN total_days_on_sale_storewide BETWEEN 31 AND 60 THEN '31-60'
+      WHEN total_days_on_sale_storewide BETWEEN 61 AND 90 THEN '61-90'
+      WHEN total_days_on_sale_storewide BETWEEN 91 AND 180 THEN '91-180'
+      WHEN total_days_on_sale_storewide BETWEEN 181 AND 270 THEN '181-270'
+      ELSE '271+' END AS total_days_on_sale_storewide,
+CASE WHEN total_days_on_sale_selectlisting = 0 THEN '0'
+      WHEN total_days_on_sale_selectlisting BETWEEN 0 AND 30 THEN '1-30'
+      WHEN total_days_on_sale_selectlisting BETWEEN 31 AND 60 THEN '31-60'
+      WHEN total_days_on_sale_selectlisting BETWEEN 61 AND 90 THEN '61-90'
+      WHEN total_days_on_sale_selectlisting BETWEEN 91 AND 180 THEN '91-180'
+      WHEN total_days_on_sale_selectlisting BETWEEN 181 AND 270 THEN '181-270'
+      ELSE '271+' END AS total_days_on_sale_selectlisting,
+COUNT(shop_id) AS shop_ct
+FROM `etsy-data-warehouse-dev.nlao.total_days_on_sale_shop`
+GROUP BY 1,2,3
+;
+
+SELECT
+CASE WHEN total_days_on_sale_storewide = 0 THEN '0'
+      ELSE '1' END AS total_days_on_sale_storewide,
+CASE WHEN total_days_on_sale_selectlisting = 0 THEN '0'
+      ELSE '1' END AS total_days_on_sale_selectlisting,
+COUNT(shop_id) AS shop_ct
+FROM `etsy-data-warehouse-dev.nlao.total_days_on_sale_shop`
+GROUP BY 1,2
+;
+
 SELECT
 CASE WHEN total_days_on_sale = 0 THEN '0'
       WHEN total_days_on_sale BETWEEN 1 AND 30 THEN '1-30'
@@ -449,7 +486,73 @@ CASE WHEN total_days_on_sale_selectlisting = 0 THEN '0'
       WHEN total_days_on_sale_selectlisting BETWEEN 91 AND 180 THEN '91-180'
       WHEN total_days_on_sale_selectlisting BETWEEN 181 AND 270 THEN '181-270'
       ELSE '271+' END AS total_days_on_sale_selectlisting,
-COUNT(shop_id) AS shop_ct
-FROM `etsy-data-warehouse-dev.nlao.total_days_on_sale_shop`
+COUNT(listing_id) AS listing_ct
+FROM `etsy-data-warehouse-dev.nlao.total_days_on_sale_listing`
 GROUP BY 1
 ;
+
+
+
+
+-- For shops that are on sale more than 50% (180 days +) of the year, what is the average duration of these sales?
+WITH cte AS (
+SELECT distinct 
+promotion_id,
+date_diff(end_date,start_date,day) AS duration
+FROM `etsy-data-warehouse-dev.nlao.shop_sale_shop_and_listing` sl
+JOIN `etsy-data-warehouse-dev.nlao.total_days_on_sale_shop` sd
+      ON sl.shop_id = sd.shop_id
+WHERE total_days_on_sale >=180
+)
+SELECT
+avg(duration)
+FROM cte
+;
+
+WITH cte AS (
+SELECT distinct 
+promotion_id,
+date_diff(end_date,start_date,day) AS duration
+FROM `etsy-data-warehouse-dev.nlao.shop_sale_shop_and_listing` sl
+JOIN `etsy-data-warehouse-dev.nlao.total_days_on_sale_shop` sd
+      ON sl.shop_id = sd.shop_id
+WHERE total_days_on_sale_storewide >=180
+)
+SELECT
+avg(duration)
+FROM cte
+;
+
+WITH cte AS (
+SELECT distinct 
+promotion_id,
+date_diff(end_date,start_date,day) AS duration
+FROM `etsy-data-warehouse-dev.nlao.shop_sale_shop_and_listing` sl
+JOIN `etsy-data-warehouse-dev.nlao.total_days_on_sale_shop` sd
+      ON sl.shop_id = sd.shop_id
+WHERE total_days_on_sale_selectlisting >=180
+)
+SELECT
+avg(duration)
+FROM cte
+;
+
+-- sale duration distribution for always-on-sale shop
+WITH cte AS (
+SELECT distinct 
+promotion_id,
+date_diff(end_date,start_date,day) AS duration
+FROM `etsy-data-warehouse-dev.nlao.shop_sale_shop_and_listing` sl
+JOIN `etsy-data-warehouse-dev.nlao.shop_sale_days` sd
+      ON sl.shop_id = sd.shop_id
+WHERE total_days_on_sale >=180
+)
+SELECT
+duration,
+count(promotion_id)
+FROM cte
+GROUP BY 1
+;
+
+
+
