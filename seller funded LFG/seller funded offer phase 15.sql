@@ -1113,113 +1113,8 @@ count(f.has_sale_ending_in_48hr) as view_repeatly_onsale_listing_user_ct
 FROM listing_view l
 LEFT JOIN final f USING (user_id)
 ;
--- owner: nlao@etsy.com
--- owner_team: product-asf-team@etsy.com 
--- dependencies: `etsy-data-warehouse-prod.rollups.listings_on_sale_by_day`
--- this table adds a few more columns to `etsy-data-warehouse-prod.analytics.listing_views` to outline sales associated with the listing at the time of visit
 
-BEGIN
 
-DECLARE first_date DATE;
-DECLARE last_date DATE;
-
-SET first_date = "2022-08-01";
--- For choosing which sale to surface to the buyer:
--- Check for active sales (listing-level and shop-level). 
--- If 1 sale is active then only show that sale
--- If more than 1 sale is active right now and: The discounts are different → pick the sale with the highest discount
-
-CREATE TABLE IF NOT EXISTS `etsy-data-warehouse-dev.nlao.listing_view_with_promotion_flag` AS (
-WITH ranked_promotions AS (
-  SELECT 
-    lv.*,
-    pa.discount_amount,
-    pa.promotion_type,
-    pa.is_20_or_more,
-    pa.is_25_or_more,
-    is_sitewide,
-    RANK() OVER (PARTITION BY lv.visit_id, lv.listing_id, lv.epoch_ms 
-                 ORDER BY pa.discount_amount DESC) as discount_rank
-  FROM 
-    `etsy-data-warehouse-prod.analytics.listing_views` lv
-  LEFT JOIN 
-     `etsy-data-warehouse-prod.rollups.listings_on_sale_by_day` pa 
-    ON lv.listing_id = pa.listing_id 
-    AND timestamp_millis(lv.epoch_ms) BETWEEN pa.start_date AND pa.end_date
-    AND pa.promotion_type IN (2,4)
-  WHERE lv._date >= first_date
-)
--- is_selected_item_sale and is_entire_shop_sale would both be 1 when there are two sales (different promotion_type) with the same discount amount
-SELECT 
-  _date,
-  visit_id, 
-  listing_id, 
-  epoch_ms, 
-  referring_page_event,
-  ref_tag,
-  MAX(discount_amount) AS discount_amount,
-  MAX(CASE WHEN promotion_type = 4 THEN TRUE ELSE FALSE END) AS is_selected_item_sale,
-  MAX(CASE WHEN promotion_type = 2 THEN TRUE ELSE FALSE END) AS is_entire_shop_sale,
-  MAX(is_20_or_more) AS is_20_or_more,
-  MAX(is_25_or_more) AS is_25_or_more
-FROM 
-  ranked_promotions
-WHERE 
-  discount_rank = 1
-GROUP BY 
-  1,2,3,4,5,6
-)
-;
-
-delete from `etsy-data-warehouse-dev.nlao.listing_view_with_promotion_flag`
-where _date >= current_date - 1;
-
-set last_date = (SELECT COALESCE(max(_date), first_date) FROM `etsy-data-warehouse-dev.nlao.listing_view_with_promotion_flag`);
-
-INSERT INTO `etsy-data-warehouse-dev.nlao.listing_view_with_promotion_flag` (
-WITH ranked_promotions AS (
-  SELECT 
-    lv.*,
-    pa.discount_amount,
-    pa.promotion_type,
-    pa.is_20_or_more,
-    pa.is_25_or_more,
-    is_sitewide,
-    RANK() OVER (PARTITION BY lv.visit_id, lv.listing_id, lv.epoch_ms 
-                 ORDER BY pa.discount_amount DESC) as discount_rank
-  FROM 
-    `etsy-data-warehouse-prod.analytics.listing_views` lv
-  LEFT JOIN 
-     `etsy-data-warehouse-prod.rollups.listings_on_sale_by_day` pa 
-    ON lv.listing_id = pa.listing_id 
-    AND timestamp_millis(lv.epoch_ms) BETWEEN pa.start_date AND pa.end_date
-    AND pa.promotion_type IN (2,4)
-  WHERE lv._date > last_date
-)
--- is_selected_item_sale and is_entire_shop_sale would both be 1 when there are two sales (different promotion_type) with the same discount amount
-SELECT 
-  _date,
-  visit_id, 
-  listing_id, 
-  epoch_ms, 
-  referring_page_event,
-  ref_tag,
-  MAX(discount_amount) AS discount_amount,
-  MAX(CASE WHEN promotion_type = 4 THEN TRUE ELSE FALSE END) AS is_selected_item_sale,
-  MAX(CASE WHEN promotion_type = 2 THEN TRUE ELSE FALSE END) AS is_entire_shop_sale,
-  MAX(is_20_or_more) AS is_20_or_more,
-  MAX(is_25_or_more) AS is_25_or_more
-FROM 
-  ranked_promotions
-WHERE 
-  discount_rank = 1
-GROUP BY 
-  1,2,3,4,5,6
-)
-;
-
-END;
---on sale listing view by reference tag
 select
 case when discount_amount is null then 0 else 1 end as on_sale,
 case when referring_page_event is null then "landing" 
@@ -1228,16 +1123,15 @@ else referring_page_event end as referring_page,
 case when 
 referring_page_event is null then "landing"
 when r.module_placement is not null then "recommendations"
-when l.ref_tag like "sc_gallery%"  or l.ref_tag like "listing_page_ad_row%" then "ad"
-when l.ref_tag like "sr_gallery%" then "organic"
-when l.ref_tag is not null then "other ref_tag" end as ref_tag,
+when lv.ref_tag like "listing_page_ad_row%" then "listing page ad"
+when lv.ref_tag like "sc_gallery%" then "paid search"
+when lv.ref_tag like "sr_gallery%" then "organic search"
+when lv.ref_tag is not null then "other ref_tag" end as ref_tag,
 count(*)/sum(count(*)) over () as percent_of_listing_views
-from `etsy-data-warehouse-dev.nlao.listing_view_with_promotion_flag` l
-left join `etsy-data-warehouse-prod.static.recsys_module_mapping` r on l.ref_tag like r.ref_tag
-where l._date >= (CURRENT_DATE - 1)
+from `etsy-data-warehouse-prod.rollups.listing_view_with_promotion_flag` l
+JOIN `etsy-data-warehouse-prod.analytics.listing_views` lv on l.epoch_ms = lv.epoch_ms AND l.listing_id = lv.listing_id AND l.visit_id = lv.visit_id
+left join `etsy-data-warehouse-prod.static.recsys_module_mapping` r on lv.ref_tag like r.ref_tag
+where lv._date >= (CURRENT_DATE - 1)
 group by 1,2,3
-order by 4 desc;
-
-
-
+;
 
