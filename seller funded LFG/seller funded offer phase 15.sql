@@ -1127,11 +1127,11 @@ when lv.ref_tag like "listing_page_ad_row%" then "listing page ad"
 when lv.ref_tag like "sc_gallery%" then "paid search"
 when lv.ref_tag like "sr_gallery%" then "organic search"
 when lv.ref_tag is not null then "other ref_tag" end as ref_tag,
-count(*)/sum(count(*)) over () as percent_of_listing_views
+count(*) as percent_of_listing_views
 from `etsy-data-warehouse-prod.rollups.listing_view_with_promotion_flag` l
 JOIN `etsy-data-warehouse-prod.analytics.listing_views` lv on l.epoch_ms = lv.epoch_ms AND l.listing_id = lv.listing_id AND l.visit_id = lv.visit_id
 left join `etsy-data-warehouse-prod.static.recsys_module_mapping` r on lv.ref_tag like r.ref_tag
-where lv._date >= (CURRENT_DATE - 1)
+where lv._date BETWEEN CURRENT_DATE - 31 AND CURRENT_DATE - 1
 group by 1,2,3
 ;
 
