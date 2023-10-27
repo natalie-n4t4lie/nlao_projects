@@ -1114,7 +1114,45 @@ FROM listing_view l
 LEFT JOIN final f USING (user_id)
 ;
 
+--on sale listing view by reference tag
+select
+case when discount_amount is null then 0 else 1 end as on_sale,
+case when referring_page_event is null then "landing" 
+when referring_page_event in ("search","async_listings_search") then "search"
+else referring_page_event end as referring_page,
+case when 
+referring_page_event is null then "landing"
+when r.module_placement is not null then "recommendations"
+when l.ref_tag like "sc_gallery%"  or l.ref_tag like "listing_page_ad_row%" then "ad"
+when l.ref_tag like "sr_gallery%" then "organic"
+when l.ref_tag is not null then "other ref_tag" end as ref_tag,
+count(*)/sum(count(*)) over () as percent_of_listing_views
+from `etsy-data-warehouse-dev.nlao.listing_view_with_promotion_flag` l
+left join `etsy-data-warehouse-prod.static.recsys_module_mapping` r on l.ref_tag like r.ref_tag
+where l._date >= (CURRENT_DATE - 1)
+group by 1,2,3
+order by 4 desc;
 
+
+--on sale listing view by reference tag
+select
+case when discount_amount is null then 0 else 1 end as on_sale,
+case when referring_page_event is null then "landing" 
+when referring_page_event in ("search","async_listings_search") then "search"
+else referring_page_event end as referring_page,
+case when 
+referring_page_event is null then "landing"
+when r.module_placement is not null then "recommendations"
+when l.ref_tag like "sc_gallery%"  or l.ref_tag like "listing_page_ad_row%" then "ad"
+when l.ref_tag like "sr_gallery%" then "organic"
+when l.ref_tag is not null then "other ref_tag" end as ref_tag,
+count(*)/sum(count(*)) over () as percent_of_listing_views
+from `etsy-data-warehouse-dev.nlao.listing_view_with_promotion_flag` l
+left join `etsy-data-warehouse-prod.static.recsys_module_mapping` r on l.ref_tag like r.ref_tag
+where l._date >= (CURRENT_DATE - 1)
+group by 1,2,3
+order by 4 desc
+;
 
 
 
