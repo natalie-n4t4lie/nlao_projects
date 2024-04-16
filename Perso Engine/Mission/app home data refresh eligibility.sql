@@ -133,6 +133,6 @@ WITH cte AS (
 SELECT
 ROUND(AVG(visit_ct),0) AS avg_visit,
 ROUND(AVG(browser_ct),0) AS avg_browser,
-ROUND(AVG(user_ct),0) AS avg_browser,
+ROUND(AVG(user_ct),0) AS avg_user,
 FROM cte
 ;
