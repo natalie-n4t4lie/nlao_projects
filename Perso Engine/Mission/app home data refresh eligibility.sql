@@ -116,15 +116,13 @@ GROUP BY 1,2,3,4
 ORDER BY 1,2,3,4
 ;
 
-DECLARE platform_list ARRAY<STRING> DEFAULT ["ios", "android"];
-DECLARE lookback_date DEFAULT CURRENT_DATE() - 7;
 
 WITH cte AS (
    SELECT
        v._date AS visit_date,
-       COUNT(DISTINCT v.visit_id) visit_ct,
-       COUNT(DISTINCT v.browser_id) browser_ct,
-       COUNT(DISTINCT v.user_id) user_ct,
+       COUNT(DISTINCT v.visit_id) AS visit_ct,
+       COUNT(DISTINCT v.browser_id) AS browser_ct,
+       COUNT(DISTINCT v.user_id) AS user_ct,
    FROM `etsy-data-warehouse-prod.weblog.recent_visits` v
    WHERE
     v.platform = "boe"
@@ -133,8 +131,8 @@ WITH cte AS (
     GROUP BY 1
 )
 SELECT
-AVG(visit_ct) as avg_visit,
-AVG(browser_ct) as avg_browser,
-AVG(user_ct) as avg_browser,
+ROUND(AVG(visit_ct),0) AS avg_visit,
+ROUND(AVG(browser_ct),0) AS avg_browser,
+ROUND(AVG(user_ct),0) AS avg_browser,
 FROM cte
 ;
