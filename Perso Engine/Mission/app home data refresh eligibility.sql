@@ -136,3 +136,57 @@ ROUND(AVG(browser_ct),0) AS avg_browser,
 ROUND(AVG(user_ct),0) AS avg_user,
 FROM cte
 ;
+
+-- AVG time diff between data refresh
+
+WITH browser_with_twomore_refresh AS (
+   SELECT
+       v._date AS visit_date,
+       v.user_id,
+       v.browser_id,
+       COUNT(DISTINCT e.epoch_ms) AS refresh_ct
+   FROM `etsy-data-warehouse-prod.weblog.recent_visits` v
+   LEFT JOIN 
+        (SELECT * 
+        FROM `etsy-data-warehouse-prod.weblog.events` e
+        WHERE e.event_type = "boe_homescreen_tab_delivered"
+              AND e._date BETWEEN '2024-01-01' AND '2024-03-31' --extending look back further to account for pre-period data refresh
+        ) e
+    ON e.visit_id = v.visit_id
+   WHERE
+    v.platform = "boe"
+       AND v.event_source IN UNNEST(platform_list)
+       AND v._date BETWEEN '2024-01-01' AND '2024-03-31'
+    GROUP BY 1,2,3
+    HAVING COUNT(DISTINCT e.epoch_ms)>=2
+)
+,homepage_refresh AS (
+   SELECT DISTINCT
+       v._date AS visit_date,
+       v.user_id,
+       v.browser_id,
+       timestamp_millis(e.epoch_ms) AS homepage_refresh_epoch_ms,
+       timestamp_millis(LEAD(e.epoch_ms) OVER(PARTITION BY browser_id ORDER BY epoch_ms ASC)) AS next_homepage_refresh_epoch_ms,
+       CASE WHEN LEAD(e.epoch_ms) OVER(PARTITION BY browser_id ORDER BY epoch_ms ASC) IS NOT NULL AND LEAD(e.epoch_ms) OVER(PARTITION BY browser_id ORDER BY epoch_ms ASC)!= e.epoch_ms
+        THEN TIMESTAMP_DIFF(timestamp_millis(LEAD(e.epoch_ms) OVER(PARTITION BY browser_id ORDER BY epoch_ms ASC)),timestamp_millis(e.epoch_ms),SECOND) ELSE 88888888 END AS time_diff,
+   FROM `etsy-data-warehouse-prod.weblog.recent_visits` v
+   LEFT JOIN 
+        (SELECT DISTINCT visit_id, epoch_ms, 
+        FROM `etsy-data-warehouse-prod.weblog.events` e
+        WHERE e.event_type = "boe_homescreen_tab_delivered"
+              AND e._date BETWEEN '2024-01-01' AND '2024-03-31'
+        ) e
+    ON v.browser_id = SPLIT(e.visit_id, ".")[OFFSET(0)]
+   WHERE
+       v.platform = "boe"
+       AND v.event_source IN UNNEST(platform_list)
+       AND v._date BETWEEN '2024-01-01' AND '2024-03-31'
+       AND v.browser_id IN (SELECT browser_id FROM browser_with_twomore_refresh)
+)
+SELECT
+AVG(time_diff) AS avg_refresh_diff,
+FROM homepage_refresh
+WHERE time_diff !=88888888
+;
+
+
