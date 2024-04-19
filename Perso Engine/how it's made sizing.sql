@@ -308,3 +308,59 @@ AND taxonomy_id NOT IN (1893,6231,6861,6628,1158,6890,6877,6881,6889,6888,1132,6
 ORDER BY RAND()
 LIMIT 20
 ;
+
+---------------------------------------------------------------------------------------------------------------------------------
+-- Overlaps with current "handmade" listing
+WITH def AS(
+  SELECT 
+  DISTINCT
+  "Seller designed digital" AS label,
+  listing_id
+  FROM `etsy-data-warehouse-prod.listing_mart.listing_attributes` a 
+  WHERE a.is_digital = 1
+UNION ALL
+  SELECT
+  DISTINCT
+  "Vintage" AS label,
+  listing_id
+  FROM `etsy-data-warehouse-prod.materialized.listing_marketplaces` a 
+  WHERE a.is_vintage = 1
+UNION ALL
+  SELECT
+  DISTINCT 
+  "Seller sourced and curated",
+  listing_id
+  FROM `etsy-data-warehouse-prod.rollups.active_listing_basics`
+  WHERE taxonomy_id IN (1893,6231,6861,6628,1158,6890,6877,6881,6889,6888,1132,6879,1140,1120)
+UNION ALL
+  SELECT
+  DISTINCT 
+  "Creative Supplies / Sourced by (Craft)" AS label,
+  listing_id
+  FROM `etsy-data-warehouse-prod.rollups.active_listing_basics`
+  WHERE top_category IN ("craft_supplies_and_tools")
+  AND taxonomy_id NOT IN (1893,6231,6861,6628,1158,6890,6877,6881,6889,6888,1132,6879,1140,1120)
+UNION ALL
+  SELECT
+  DISTINCT 
+  "Creative Supplies / Sourced by (Paper)" AS label,
+  listing_id
+  FROM `etsy-data-warehouse-prod.rollups.active_listing_basics`
+  WHERE top_category IN ("paper_and_party_supplies")
+  AND taxonomy_id NOT IN (1893,6231,6861,6628,1158,6890,6877,6881,6889,6888,1132,6879,1140,1120)
+)
+SELECT
+d.label,
+COUNT(DISTINCT m.listing_id) AS listing_ct
+FROM `etsy-data-warehouse-prod.rollups.active_listing_basics` l
+JOIN `etsy-data-warehouse-prod.materialized.listing_marketplaces` m
+  ON l.listing_id = m.listing_id
+LEFT JOIN def d
+  ON l.listing_id = m.listing_id
+WHERE m.is_handmade = 1
+GROUP BY 1
+;
+
+
+
+
