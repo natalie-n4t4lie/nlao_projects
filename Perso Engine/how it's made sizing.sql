@@ -149,6 +149,7 @@ DISTINCT
 listing_id
 FROM `etsy-data-warehouse-prod.rollups.active_listing_basics`
 WHERE top_cateogry IN ("craft_supplies_and_tools")
+  AND taxonomy_id NOT IN (1893,6231,6861,6628,1158,6890,6877,6881,6889,6888,1132,6879,1140,1120)
 )
 ;
 
@@ -196,6 +197,7 @@ DISTINCT
 listing_id
 FROM `etsy-data-warehouse-prod.rollups.active_listing_basics`
 WHERE top_cateogry IN ("paper_and_party_supplies")
+    AND taxonomy_id NOT IN (1893,6231,6861,6628,1158,6890,6877,6881,6889,6888,1132,6879,1140,1120)
 )
 ;
 
