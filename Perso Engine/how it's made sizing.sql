@@ -194,7 +194,7 @@ DISTINCT
 "Creative Supplies / Sourced by(craft)" AS label,
 listing_id
 FROM `etsy-data-warehouse-prod.rollups.active_listing_basics`
-WHERE top_cateogry IN ("craft_supplies_and_tools")
+WHERE top_category IN ("craft_supplies_and_tools")
   AND taxonomy_id NOT IN (1893,6231,6861,6628,1158,6890,6877,6881,6889,6888,1132,6879,1140,1120)
 )
 ;
@@ -242,8 +242,8 @@ DISTINCT
 "Creative Supplies / Sourced by(paper)" AS label,
 listing_id
 FROM `etsy-data-warehouse-prod.rollups.active_listing_basics`
-WHERE top_cateogry IN ("paper_and_party_supplies")
-    AND taxonomy_id NOT IN (1893,6231,6861,6628,1158,6890,6877,6881,6889,6888,1132,6879,1140,1120)
+WHERE top_category IN ("paper_and_party_supplies")
+  AND taxonomy_id NOT IN (1893,6231,6861,6628,1158,6890,6877,6881,6889,6888,1132,6879,1140,1120)
 )
 ;
 
@@ -284,85 +284,65 @@ WHERE date BETWEEN CURRENT_DATE - 366 AND CURRENT_DATE - 1
 ;
 
 -- # POD ACTIVE LISTINGS
-create or replace table `etsy-data-warehouse-dev.nlao.pod_active_listings`
-as (
-with sppla_mapping as (
-select
-  distinct 
+CREATE OR REPLACE TABLE `etsy-data-warehouse-dev.nlao.him_pod` AS (
+WITH sppla_mapping AS (
+SELECT DISTINCT 
   spp.shop_id,
   sppla.listing_id,
   spp.business_name,
   spp.descriptive_title,
   spp.about_production_partner,
-  1 as is_pod_partner_listing
-from `etsy-data-warehouse-prod.etsy_shard.shop_production_partner_listing_association` sppla
-join
-  `etsy-data-warehouse-prod.etsy_shard.shop_production_partner` spp
-  on
-  sppla.production_partner_id = spp.production_partner_id
-where
-  lower(spp.business_name) like "%print%"
-  or
-  lower(spp.descriptive_title) like "%print%"
-  or lower(spp.about_production_partner) like "%print%"
+  1 AS is_pod_partner_listing
+FROM `etsy-data-warehouse-prod.etsy_shard.shop_production_partner_listing_association` sppla
+JOIN `etsy-data-warehouse-prod.etsy_shard.shop_production_partner` spp
+  ON sppla.production_partner_id = spp.production_partner_id
+WHERE LOWER(spp.business_name) LIKE "%print%"
+  OR LOWER(spp.descriptive_title) LIKE "%print%"
+  OR LOWER(spp.about_production_partner) LIKE "%print%"
 ),
-api_users as (
-   select user_id,
+api_users AS (
+   SELECT user_id,
       api_key_id,
-      count(*) as recs
-   from `etsy-data-warehouse-prod.etsy_shard.user_api_keys`
-   where active = 1
-   group by 1,2
-   order by 1,2
+      COUNT(*) AS recs
+   FROM `etsy-data-warehouse-prod.etsy_shard.user_api_keys`
+   WHERE active = 1
+   GROUP BY 1,2
+   ORDER BY 1,2
    ),
-apps as (
-   select distinct
+apps AS (
+   SELECT DISTINCT
    t.user_id,
    a.name,
    a.application_id,
    a.description,
-   1 as is_pod_api_shop
-   from api_users t 
-   join `etsy-data-warehouse-prod.etsy_index.api_keys_index` k 
-      on t.api_key_id = k.api_key_id
-   join `etsy-data-warehouse-prod.etsy_shard.application_data` a 
-      on k.app_id = a.application_id
-   join `etsy-data-warehouse-prod.etsy_index.application_index` i 
-      on a.application_id = i.application_id
-   where a.name not in ("Etsy for iPhone","Etsy for Android","Sell on Etsy for Android","Butter SOE (iOS)","Butter SOE (Android)")
-      and i.approved = 1 
-and (lower(a.name) like "%printful%" or lower(a.name) like "%printify%"
-or lower(a.name) like "%gooten%"
-or lower(a.name) like "%inkthreadable%")
+   1 AS is_pod_api_shop
+   FROM api_users t 
+   JOIN `etsy-data-warehouse-prod.etsy_index.api_keys_index` k 
+      ON t.api_key_id = k.api_key_id
+   JOIN `etsy-data-warehouse-prod.etsy_shard.application_data` a 
+      ON k.app_id = a.application_id
+   JOIN `etsy-data-warehouse-prod.etsy_index.application_index` i 
+      ON a.application_id = i.application_id
+   WHERE a.name NOT IN ("Etsy for iPhone","Etsy for Android","Sell on Etsy for Android","Butter SOE (iOS)","Butter SOE (Android)")
+      AND i.approved = 1 
+      AND (LOWER(a.name) LIKE "%printful%" OR LOWER(a.name) LIKE "%printify%" OR LOWER(a.name) LIKE "%gooten%" OR LOWER(a.name) LIKE "%inkthreadable%")
       AND app_id IN (692758447517,1048119756481,182574138636,194131186944,826789741498,583596392566,404172100923,1021341745869,293514109927,908698012787,403922718747,513342174141,16100456054,1164547402740,914535233482,1153967920197,1112050276391,412564431162,1020017555556)
       --and i.state = 1
 )
-select
-l.*,
-s.seller_tier_new,
-s.shop_name,
-s.active_seller_status,
-s.sws_status,
-s.past_year_gms as shop_past_year_gms,
+SELECT
+l.listing_id,
 p.is_pod_partner_listing,
-p.business_name as partner_business_name,
-p.descriptive_title as partner_descriptive_title,
-p.about_production_partner as about_production_partner,
 a.is_pod_api_shop,
-a.name as api_name,
-a.application_id as application_id,
-a.description as api_description
-from `etsy-data-warehouse-prod.rollups.active_listing_basics` l
-join `etsy-data-warehouse-prod.rollups.seller_basics` s using (shop_id)
-left join sppla_mapping p on l.listing_id = p.listing_id
-left join apps a on s.user_id = a.user_id);
+FROM `etsy-data-warehouse-prod.rollups.active_listing_basics` l
+LEFT JOIN sppla_mapping p ON l.listing_id = p.listing_id
+LEFT JOIN apps a ON l.user_id = a.user_id);
 
 -- # POD ACTIVE LISTINGS
 -- listing count, gms, and seller count
 WITH def AS (
 SELECT
 DISTINCT listing_id
-FROM `etsy-data-warehouse-dev.nlao.pod_active_listings`
+FROM `etsy-data-warehouse-dev.nlao.him_pod`
 WHERE is_pod_partner_listing = 1
 )  
 SELECT
@@ -380,7 +360,7 @@ FROM `etsy-data-warehouse-prod.rollups.active_listing_basics`
 WITH def AS (
 SELECT
 DISTINCT listing_id
-FROM `etsy-data-warehouse-dev.nlao.pod_active_listings`
+FROM `etsy-data-warehouse-dev.nlao.him_pod`
 WHERE is_pod_partner_listing = 1
 )  
 SELECT
@@ -395,7 +375,7 @@ WHERE _date BETWEEN CURRENT_DATE - 366 AND CURRENT_DATE - 1
 WITH def AS (
 SELECT
 DISTINCT listing_id
-FROM `etsy-data-warehouse-dev.nlao.pod_active_listings`
+FROM `etsy-data-warehouse-dev.nlao.him_pod`
 WHERE is_pod_partner_listing = 1
 )  
 SELECT
@@ -407,11 +387,10 @@ WHERE date BETWEEN CURRENT_DATE - 366 AND CURRENT_DATE - 1
 ;
 
 -- Sample
-WITH def AS (
 SELECT
 "Seller designed POD (Partner string match)" AS label,
 listing_id
-FROM `etsy-data-warehouse-dev.nlao.pod_active_listings`
+FROM `etsy-data-warehouse-dev.nlao.him_pod`
 WHERE is_pod_partner_listing = 1
 ORDER BY RAND()
 LIMIT 20
@@ -422,7 +401,7 @@ LIMIT 20
 WITH def AS (
 SELECT
 DISTINCT listing_id
-FROM `etsy-data-warehouse-dev.nlao.pod_active_listings`
+FROM `etsy-data-warehouse-dev.nlao.him_pod`
 WHERE is_pod_api_shop = 1
 )  
 SELECT
@@ -440,7 +419,7 @@ FROM `etsy-data-warehouse-prod.rollups.active_listing_basics`
 WITH def AS (
 SELECT
 DISTINCT listing_id
-FROM `etsy-data-warehouse-dev.nlao.pod_active_listings`
+FROM `etsy-data-warehouse-dev.nlao.him_pod`
 WHERE is_pod_api_shop = 1
 )  
 SELECT
@@ -455,7 +434,7 @@ WHERE _date BETWEEN CURRENT_DATE - 366 AND CURRENT_DATE - 1
 WITH def AS (
 SELECT
 DISTINCT listing_id
-FROM `etsy-data-warehouse-dev.nlao.pod_active_listings`
+FROM `etsy-data-warehouse-dev.nlao.him_pod`
 WHERE is_pod_api_shop = 1
 )  
 SELECT
@@ -470,8 +449,59 @@ WHERE date BETWEEN CURRENT_DATE - 366 AND CURRENT_DATE - 1
 SELECT
 "Seller designed POD (API match)" AS label,
 listing_id
-FROM `etsy-data-warehouse-dev.nlao.pod_active_listings`
+FROM `etsy-data-warehouse-dev.nlao.him_pod`
 WHERE is_pod_api_shop = 1
 ORDER BY RAND()
 LIMIT 20
+;
+
+-- What's the overlaps between two POD segments
+SELECT
+is_pod_api_shop,
+is_pod_partner_listing,
+count(DISTINCT listing_id) AS ct
+FROM `etsy-data-warehouse-dev.nlao.him_pod`
+GROUP BY 1,2
+;
+
+-- How many % of "handmade" listings falls into either of these label?
+SELECT
+COUNT(DISTINCT a.listing_id) AS handmade,
+COUNT(DISTINCT CASE WHEN aa.label IS NOT NULL THEN a.listing_id ELSE NULL END) AS vintage,
+COUNT(DISTINCT CASE WHEN b.label IS NOT NULL THEN a.listing_id ELSE NULL END) AS digital,
+COUNT(DISTINCT CASE WHEN c.label IS NOT NULL THEN a.listing_id ELSE NULL END) AS sourced,
+COUNT(DISTINCT CASE WHEN d.label IS NOT NULL THEN a.listing_id ELSE NULL END) AS craft,
+COUNT(DISTINCT CASE WHEN e.label IS NOT NULL THEN a.listing_id ELSE NULL END) AS paper,
+COUNT(DISTINCT CASE WHEN f.label IS NOT NULL THEN a.listing_id ELSE NULL END) AS pod_string,
+COUNT(DISTINCT CASE WHEN g.label IS NOT NULL THEN a.listing_id ELSE NULL END) AS pod_api,
+FROM `etsy-data-warehouse-dev.nlao.him_seller_made` a
+LEFT JOIN `etsy-data-warehouse-dev.nlao.him_vintage` aa ON a.listing_id = aa.listing_id
+LEFT JOIN `etsy-data-warehouse-dev.nlao.him_digital` b ON a.listing_id = b.listing_id
+LEFT JOIN `etsy-data-warehouse-dev.nlao.him_seller_sourced_and_curated` c ON a.listing_id = c.listing_id
+LEFT JOIN `etsy-data-warehouse-dev.nlao.him_craft_supplies_craft` d ON a.listing_id = d.listing_id
+LEFT JOIN `etsy-data-warehouse-dev.nlao.him_craft_supplies_paper` e ON a.listing_id = e.listing_id
+LEFT JOIN (SELECT "Seller designed POD (Partner string match)" AS label, listing_id FROM `etsy-data-warehouse-dev.nlao.him_pod` WHERE is_pod_partner_listing = 1) f ON a.listing_id = f.listing_id
+LEFT JOIN (SELECT "Seller designed POD (API match)" AS label, listing_id FROM `etsy-data-warehouse-dev.nlao.him_pod` WHERE is_pod_api_shop = 1) g ON a.listing_id = g.listing_id
+;
+
+-- How many % of "handmade" listings falls into any label?
+SELECT
+COUNT(DISTINCT a.listing_id) AS handmade,
+COUNT(DISTINCT 
+CASE WHEN aa.label IS NOT NULL 
+OR b.label IS NOT NULL 
+OR c.label IS NOT NULL 
+OR d.label IS NOT NULL 
+OR e.label IS NOT NULL 
+OR f.label IS NOT NULL 
+OR g.label IS NOT NULL 
+THEN a.listing_id ELSE NULL END) AS any_label,
+FROM `etsy-data-warehouse-dev.nlao.him_seller_made` a
+LEFT JOIN `etsy-data-warehouse-dev.nlao.him_vintage` aa ON a.listing_id = aa.listing_id
+LEFT JOIN `etsy-data-warehouse-dev.nlao.him_digital` b ON a.listing_id = b.listing_id
+LEFT JOIN `etsy-data-warehouse-dev.nlao.him_seller_sourced_and_curated` c ON a.listing_id = c.listing_id
+LEFT JOIN `etsy-data-warehouse-dev.nlao.him_craft_supplies_craft` d ON a.listing_id = d.listing_id
+LEFT JOIN `etsy-data-warehouse-dev.nlao.him_craft_supplies_paper` e ON a.listing_id = e.listing_id
+LEFT JOIN (SELECT "Seller designed POD (Partner string match)" AS label, listing_id FROM `etsy-data-warehouse-dev.nlao.him_pod` WHERE is_pod_partner_listing = 1) f ON a.listing_id = f.listing_id
+LEFT JOIN (SELECT "Seller designed POD (API match)" AS label, listing_id FROM `etsy-data-warehouse-dev.nlao.him_pod` WHERE is_pod_api_shop = 1) g ON a.listing_id = g.listing_id
 ;
