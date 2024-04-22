@@ -45,6 +45,52 @@ LEFT JOIN `etsy-data-warehouse-dev.nlao.him_seller_made` h
 WHERE date BETWEEN CURRENT_DATE - 366 AND CURRENT_DATE - 1
 ;
 
+CREATE OR REPLACE TABLE `etsy-data-warehouse-dev.nlao.him_digital` AS (
+SELECT
+DISTINCT 
+"Digital" AS label,
+listing_id
+FROM `etsy-data-warehouse-prod.listing_mart.listing_attributes` a 
+JOIN `etsy-data-warehouse-prod.rollups.active_listing_basics` USING (listing_id)
+WHERE a.is_digital = 1
+)
+;
+-- listings, sellers, listing views, transactions, GMS
+SELECT
+"Digital" AS label,
+COUNT(DISTINCT h.listing_id) AS listing_ct,
+COUNT(DISTINCT h.listing_id) / COUNT(l.listing_id) AS listing_pct,
+SUM(CASE WHEN h.listing_id IS NOT NULL THEN l.past_year_gms ELSE NULL END) AS gms,
+SUM(CASE WHEN h.listing_id IS NOT NULL THEN l.past_year_gms ELSE NULL END) / SUM(l.past_year_gms) AS gms_pct,
+COUNT(DISTINCT CASE WHEN h.listing_id IS NOT NULL THEN user_id ELSE NULL END) AS seller_ct,
+COUNT(DISTINCT CASE WHEN h.listing_id IS NOT NULL THEN user_id ELSE NULL END) / COUNT(DISTINCT user_id) AS user_pct,
+FROM `etsy-data-warehouse-prod.rollups.active_listing_basics` l
+LEFT JOIN `etsy-data-warehouse-dev.nlao.him_digital` h
+  USING (listing_id)
+;
+
+-- listing_view
+SELECT
+"Digital" AS label,
+COUNT(CASE WHEN h.listing_id IS NOT NULL THEN listing_id ELSE NULL END) AS listing_view_ct,
+COUNT(CASE WHEN h.listing_id IS NOT NULL THEN listing_id ELSE NULL END) / COUNT(*) AS listing_view_pct,
+FROM `etsy-data-warehouse-prod.analytics.listing_views`
+LEFT JOIN `etsy-data-warehouse-dev.nlao.him_digital` h
+  USING (listing_id)
+WHERE _date BETWEEN CURRENT_DATE - 366 AND CURRENT_DATE - 1
+;
+
+-- transaction
+SELECT
+"Digital" AS label,
+COUNT(CASE WHEN h.listing_id IS NOT NULL THEN listing_id ELSE NULL END) AS transaction_ct,
+COUNT(CASE WHEN h.listing_id IS NOT NULL THEN listing_id ELSE NULL END) / COUNT(*) AS transaction_pct,
+FROM `etsy-data-warehouse-prod.transaction_mart.all_transactions`
+LEFT JOIN `etsy-data-warehouse-dev.nlao.him_digital` h
+  USING (listing_id)
+WHERE date BETWEEN CURRENT_DATE - 366 AND CURRENT_DATE - 1
+;
+
 -- vintage
 CREATE OR REPLACE TABLE `etsy-data-warehouse-dev.nlao.him_vintage` AS (
 SELECT
