@@ -43,13 +43,6 @@ ELSE
     );
 END IF;
 
--- TIPS:
---   - Replace 'nlao' in the table names below with your own username or personal dataset name.
---   - Additionally, there are a few TODO items in this script depending on:
---       - Whether you would like to look at certain segmentations  (marked with <SEGMENTATION>)
---       - Whether you would like to look at certain events         (marked with <EVENT>)
---     Before running, please review the script and adjust the marked sections accordingly!
-
 -------------------------------------------------------------------------------------------
 -- BUCKETING DATA
 -------------------------------------------------------------------------------------------
