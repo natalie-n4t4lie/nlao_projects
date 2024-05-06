@@ -50,7 +50,7 @@ FROM labels
 )
 SELECT
 *,
-CASE WHEN is_digital = 0 AND (lower(back_end_labels) LIKE "%handmade%") THEN 1 ELSE 0 END AS show_handmade,
+CASE WHEN is_digital = 0 AND ((lower(back_end_labels) LIKE "%handmade%") OR is_handmade IN ("i_did","collective")) THEN 1 ELSE 0 END AS show_handmade,
 CASE WHEN is_vintage = 1 THEN 1 ELSE 0 END AS show_vintage,
 FROM backend_labels
 );
