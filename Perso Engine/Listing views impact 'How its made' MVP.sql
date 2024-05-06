@@ -1,5 +1,4 @@
 --// sql logic for https://docs.google.com/spreadsheets/d/10U5ZZpxCwXdKx71zX1ZGW4PxDicEoa9D2sP28UT6jho/edit#gid=905577962
-
 ------------------------------------------------------------------------------------------------------------------------------------------------------------
 -- REPLICATE CURRENT PRODUCT LABELS LOGIC
 ------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -36,13 +35,13 @@ is_vintage,
 is_handmade,
 has_production_partner,
 CASE WHEN is_handmade IN ("someone_else") AND is_supplies = 0 AND is_vintage = 0 AND has_production_partner = 1 THEN "Handmade with production assistance"
-     WHEN is_handmade IN ("i_did","collective") AND is_supplies = 0 AND is_vintage = 0 THEN "Handmade"
-     WHEN is_handmade IN ("i_did","collective") AND is_supplies = 1 AND is_vintage = 0 THEN "Handmade Supply"
-     WHEN is_handmade IN ("someone_else") AND is_supplies = 1 AND is_vintage = 0 THEN "Supply"
      WHEN is_handmade IN ("someone_else") AND is_supplies = 0 AND is_vintage = 1 AND has_production_partner = 0 THEN "Vintage"
      WHEN is_handmade IN ("someone_else") AND is_supplies = 1 AND is_vintage = 1 AND has_production_partner = 0 THEN "Vintage Supply"
      WHEN is_handmade IN ("i_did","collective") AND is_supplies = 0 AND is_vintage = 1 AND has_production_partner = 0 THEN "Handmade and Vintage"
      WHEN is_handmade IN ("i_did","collective") AND is_supplies = 1 AND is_vintage = 1 AND has_production_partner = 0 THEN "Handmade, Vintage Supply"
+     WHEN is_handmade IN ("i_did","collective") AND is_supplies = 0 AND is_vintage = 0 THEN "Handmade"
+     WHEN is_handmade IN ("i_did","collective") AND is_supplies = 1 AND is_vintage = 0 THEN "Handmade Supply"
+     WHEN is_handmade IN ("someone_else") AND is_supplies = 1 AND is_vintage = 0 THEN "Supply"
      ELSE "N/A" END AS back_end_labels,
 listing_id,
 past_year_gms
@@ -186,11 +185,21 @@ is_nature_item,
 is_giftbox,
 is_pod,
 variant_a_label,
+CASE WHEN variant_a_label = "seller designed" THEN variant_a_label
+     WHEN variant_a_label = "handmade" THEN variant_a_label
+     WHEN variant_a_label IN ("seller sourced and curated: nature item","seller sourced and curated: giftbox") THEN "seller sourced and curated"
+     WHEN variant_a_label IN ("not assigned","no label someone else") THEN "no label"
+     END AS variant_a_main_label,
 variant_b_label,
+CASE WHEN variant_b_label = "seller designed" THEN variant_b_label
+     WHEN variant_b_label = "handmade" THEN variant_b_label
+     WHEN variant_b_label IN ("seller sourced and curated: nature item","seller sourced and curated: giftbox") THEN "seller sourced and curated"
+     WHEN variant_b_label IN ("not assigned","no label someone else","no label pod") THEN "no label"
+     END AS variant_b_main_label,
 COUNT(listing_id) AS listing_ct,
 SUM(past_year_gms) AS past_year_gms
 FROM `etsy-data-warehouse-dev.nlao.him_joined_table`
-GROUP BY 1,2,3,4,5,6,7,8,9,10,11,12,13
+GROUP BY 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15
 ;
 
 -- listing_view
@@ -207,19 +216,210 @@ is_nature_item,
 is_giftbox,
 is_pod,
 variant_a_label,
+CASE WHEN variant_a_label = "seller designed" THEN variant_a_label
+     WHEN variant_a_label = "handmade" THEN variant_a_label
+     WHEN variant_a_label IN ("seller sourced and curated: nature item","seller sourced and curated: giftbox") THEN "seller sourced and curated"
+     WHEN variant_a_label IN ("not assigned","no label someone else") THEN "no label"
+     END AS variant_a_main_label,
 variant_b_label,
+CASE WHEN variant_b_label = "seller designed" THEN variant_b_label
+     WHEN variant_b_label = "handmade" THEN variant_b_label
+     WHEN variant_b_label IN ("seller sourced and curated: nature item","seller sourced and curated: giftbox") THEN "seller sourced and curated"
+     WHEN variant_b_label IN ("not assigned","no label someone else","no label pod") THEN "no label"
+     END AS variant_b_main_label,
 COUNT(*) AS listing_view_ct,
 FROM `etsy-data-warehouse-prod.analytics.listing_views` a
 LEFT JOIN `etsy-data-warehouse-dev.nlao.him_joined_table` j
   USING (listing_id)
 WHERE _date BETWEEN CURRENT_DATE - 31 AND CURRENT_DATE - 1
-GROUP BY 1,2,3,4,5,6,7,8,9,10,11,12,13
+GROUP BY 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15
 ;
 
-
+-- impacted = any change
+CREATE OR REPLACE TABLE `etsy-data-warehouse-dev.nlao.him_impact_reason` AS ( 
+WITH seller_join AS (
 SELECT
-listing_id
-FROM  `etsy-data-warehouse-dev.nlao.him_joined_table`
-WHERE is_vintage = 1 and has_production_partner = 1
-limit 10
+b.*,
+CASE WHEN variant_a_label = "seller designed" THEN variant_a_label
+     WHEN variant_a_label = "handmade" THEN variant_a_label
+     WHEN variant_a_label IN ("seller sourced and curated: nature item","seller sourced and curated: giftbox") THEN "seller sourced and curated"
+     WHEN variant_a_label IN ("not assigned","no label someone else") THEN "no label"
+     END AS variant_a_main_label,
+CASE WHEN variant_b_label = "seller designed" THEN variant_b_label
+     WHEN variant_b_label = "handmade" THEN variant_b_label
+     WHEN variant_b_label IN ("seller sourced and curated: nature item","seller sourced and curated: giftbox") THEN "seller sourced and curated"
+     WHEN variant_b_label IN ("not assigned","no label someone else","no label pod") THEN "no label"
+     END AS variant_b_main_label
+-- COUNT(a.listing_id) OVER (PARTITION BY a.user_id) AS seller_own_active_listings
+FROM `etsy-data-warehouse-dev.nlao.him_joined_table` b
+)
+SELECT 
+*,
+CASE WHEN variant_a_main_label = "seller designed" 
+      OR (variant_a_main_label = "seller sourced and curated" AND current_frontend_handmade = 0)
+    THEN 1 ELSE 0 END AS va_add_new_label,
+CASE WHEN (variant_a_main_label = "handmade" AND current_frontend_handmade = 1) 
+      OR (variant_a_main_label = "no label" AND current_frontend_handmade = 0) 
+    THEN 1 ELSE 0 END AS va_not_impacted,
+CASE WHEN variant_a_main_label = "no label" 
+      AND current_frontend_handmade = 1 
+    THEN 1 ELSE 0 END AS va_remove_handmade_label,
+CASE WHEN variant_a_main_label = "seller sourced and curated" 
+      AND current_frontend_handmade = 1 
+    THEN 1 ELSE 0 END AS va_change_to_new_label,
+CASE WHEN variant_b_main_label = "seller designed" 
+      OR (variant_b_main_label = "seller sourced and curated" AND current_frontend_handmade = 0) 
+    THEN 1 ELSE 0 END AS vb_add_new_label,
+CASE WHEN (variant_b_main_label = "handmade" AND current_frontend_handmade = 1) 
+      OR (variant_b_main_label = "no label" AND current_frontend_handmade = 0) 
+    THEN 1 ELSE 0 END AS vb_not_impacted,
+CASE WHEN variant_b_main_label = "no label" 
+      AND current_frontend_handmade = 1 
+    THEN 1 ELSE 0 END AS vb_remove_handmade_label,
+CASE WHEN variant_b_main_label = "seller sourced and curated" 
+      AND current_frontend_handmade = 1 
+    THEN 1 ELSE 0 END AS vb_change_to_new_label,
+FROM seller_join
+)
 ;
+
+
+-- one or more impacted
+WITH impact_listing_ct AS (
+SELECT
+l.user_id,
+s.seller_tier,
+SUM(va_add_new_label) AS va_add_new_label_listing,
+SUM(va_not_impacted) AS va_no_impact_listing,
+SUM(va_remove_handmade_label) AS va_remove_handmade_label_listing,
+SUM(va_change_to_new_label) AS va_change_to_new_label_listing,
+SUM(vb_add_new_label) AS vb_add_new_label_listing,
+SUM(vb_not_impacted) AS vb_no_impact_listing,
+SUM(vb_remove_handmade_label) AS vb_remove_handmade_label_listing,
+SUM(vb_change_to_new_label) AS vb_change_to_new_label_listing,
+COUNT(*) AS total_listing_ct
+FROM `etsy-data-warehouse-dev.nlao.him_impact_reason` h
+JOIN `etsy-data-warehouse-prod.rollups.active_listing_basics` l
+  ON h.listing_id = l.listing_id
+JOIN `etsy-data-warehouse-prod.rollups.seller_tier` s
+  ON s.user_id = l.user_id AND s.date = CURRENT_DATE - 1
+GROUP BY 1,2
+)
+SELECT
+CASE WHEN va_no_impact_listing = total_listing_ct THEN "1.no impact"
+     WHEN va_add_new_label_listing >0 AND va_remove_handmade_label_listing = 0 AND va_change_to_new_label_listing = 0 THEN "2.add_new_label_listing ONLY"
+     WHEN va_add_new_label_listing =0 AND va_remove_handmade_label_listing > 0 AND va_change_to_new_label_listing = 0 THEN "3.remove_handmade_label_listing ONLY"
+     WHEN va_add_new_label_listing =0 AND va_remove_handmade_label_listing = 0 AND va_change_to_new_label_listing > 0 THEN "4.change_to_new_label_listing ONLY"
+     WHEN va_add_new_label_listing >0 AND va_remove_handmade_label_listing > 0 AND va_change_to_new_label_listing = 0 THEN "5.add and remove label"
+     WHEN va_add_new_label_listing =0 AND va_remove_handmade_label_listing > 0 AND va_change_to_new_label_listing > 0 THEN "6.remove and change label"
+     WHEN va_add_new_label_listing >0 AND va_remove_handmade_label_listing = 0 AND va_change_to_new_label_listing > 0 THEN "7.add and change label"
+     WHEN va_add_new_label_listing >0 AND va_remove_handmade_label_listing > 0 AND va_change_to_new_label_listing > 0 THEN "8.all three changes"
+END AS va_impact_grouping,
+CASE WHEN vb_no_impact_listing = total_listing_ct THEN "1.no impact"
+     WHEN vb_add_new_label_listing >0 AND vb_remove_handmade_label_listing = 0 AND vb_change_to_new_label_listing = 0 THEN "2.add_new_label_listing ONLY"
+     WHEN vb_add_new_label_listing =0 AND vb_remove_handmade_label_listing > 0 AND vb_change_to_new_label_listing = 0 THEN "3.remove_handmade_label_listing ONLY"
+     WHEN vb_add_new_label_listing =0 AND vb_remove_handmade_label_listing = 0 AND vb_change_to_new_label_listing > 0 THEN "4.change_to_new_label_listing ONLY"
+     WHEN vb_add_new_label_listing >0 AND vb_remove_handmade_label_listing > 0 AND vb_change_to_new_label_listing = 0 THEN "5.add and remove label"
+     WHEN vb_add_new_label_listing =0 AND vb_remove_handmade_label_listing > 0 AND vb_change_to_new_label_listing > 0 THEN "6.remove and change label"
+     WHEN vb_add_new_label_listing >0 AND vb_remove_handmade_label_listing = 0 AND vb_change_to_new_label_listing > 0 THEN "7.add and change label"
+     WHEN vb_add_new_label_listing >0 AND vb_remove_handmade_label_listing > 0 AND vb_change_to_new_label_listing > 0 THEN "8.all three changes"
+END AS vb_impact_grouping,
+seller_tier,
+COUNT(user_id) AS user_ct
+FROM impact_listing_ct
+GROUP BY 1,2,3
+;
+
+-- 50% or more impacted
+WITH impact_listing_ct AS (
+SELECT
+l.user_id,
+s.seller_tier,
+SUM(va_add_new_label) AS va_add_new_label_listing,
+SUM(va_not_impacted) AS va_no_impact_listing,
+SUM(va_remove_handmade_label) AS va_remove_handmade_label_listing,
+SUM(va_change_to_new_label) AS va_change_to_new_label_listing,
+SUM(vb_add_new_label) AS vb_add_new_label_listing,
+SUM(vb_not_impacted) AS vb_no_impact_listing,
+SUM(vb_remove_handmade_label) AS vb_remove_handmade_label_listing,
+SUM(vb_change_to_new_label) AS vb_change_to_new_label_listing,
+COUNT(*) AS total_listing_ct
+FROM `etsy-data-warehouse-dev.nlao.him_impact_reason` h
+JOIN `etsy-data-warehouse-prod.rollups.active_listing_basics` l
+  ON h.listing_id = l.listing_id
+JOIN `etsy-data-warehouse-prod.rollups.seller_tier` s
+  ON s.user_id = l.user_id AND s.date = CURRENT_DATE - 1
+GROUP BY 1,2
+)
+SELECT
+CASE WHEN va_no_impact_listing = total_listing_ct THEN "1.no impact"
+     WHEN va_add_new_label_listing/total_listing_ct >=0.5 
+        AND va_remove_handmade_label_listing = 0 
+        AND va_change_to_new_label_listing = 0 
+     THEN "2.add_new_label_listing ONLY"
+     WHEN va_add_new_label_listing =0 
+        AND va_remove_handmade_label_listing/total_listing_ct >= 0.5 
+        AND va_change_to_new_label_listing = 0 
+     THEN "3.remove_handmade_label_listing ONLY"
+     WHEN va_add_new_label_listing =0 
+        AND va_remove_handmade_label_listing = 0 
+        AND va_change_to_new_label_listing/total_listing_ct >= 0.5 
+     THEN "4.change_to_new_label_listing ONLY"
+     WHEN va_add_new_label_listing/total_listing_ct >=0.5 
+        AND va_remove_handmade_label_listing > 0 
+        AND va_change_to_new_label_listing = 0 
+     THEN "5.add and remove label"
+     WHEN va_add_new_label_listing =0 
+        AND va_remove_handmade_label_listing/total_listing_ct >=0.5
+        AND va_change_to_new_label_listing/total_listing_ct >= 0.5
+     THEN "6.remove and change label"
+     WHEN va_add_new_label_listing/total_listing_ct >=0.5 
+        AND va_remove_handmade_label_listing = 0 
+        AND va_change_to_new_label_listing/total_listing_ct >=0.5 
+     THEN "7.add and change label"
+     WHEN va_add_new_label_listing/total_listing_ct >=0.5
+        AND va_remove_handmade_label_listing/total_listing_ct >= 0.5
+        AND va_change_to_new_label_listing/total_listing_ct >= 0.5 
+     THEN "8.all three changes"
+     ELSE "1.no impact"
+     END AS va_impact_grouping,
+CASE WHEN vb_no_impact_listing = total_listing_ct 
+     THEN "1.no impact"
+     WHEN vb_add_new_label_listing/total_listing_ct >=0.5 
+        AND vb_remove_handmade_label_listing = 0 
+        AND vb_change_to_new_label_listing = 0 
+     THEN "2.add_new_label_listing ONLY"
+     WHEN vb_add_new_label_listing =0 
+        AND vb_remove_handmade_label_listing/total_listing_ct >= 0.5 
+        AND vb_change_to_new_label_listing = 0 
+     THEN "3.remove_handmade_label_listing ONLY"
+     WHEN vb_add_new_label_listing =0 
+        AND vb_remove_handmade_label_listing = 0 
+        AND vb_change_to_new_label_listing/total_listing_ct >= 0.5 
+     THEN "4.change_to_new_label_listing ONLY"
+     WHEN vb_add_new_label_listing/total_listing_ct >=0.5 
+        AND vb_remove_handmade_label_listing > 0 
+        AND vb_change_to_new_label_listing = 0 
+     THEN "5.add and remove label"
+     WHEN vb_add_new_label_listing =0 
+        AND vb_remove_handmade_label_listing/total_listing_ct >=0.5
+        AND vb_change_to_new_label_listing/total_listing_ct >= 0.5
+     THEN "6.remove and change label"
+     WHEN vb_add_new_label_listing/total_listing_ct >=0.5 
+        AND vb_remove_handmade_label_listing = 0 
+        AND vb_change_to_new_label_listing/total_listing_ct >=0.5 
+     THEN "7.add and change label"
+     WHEN vb_add_new_label_listing/total_listing_ct >=0.5
+        AND vb_remove_handmade_label_listing/total_listing_ct >= 0.5
+        AND vb_change_to_new_label_listing/total_listing_ct >= 0.5 
+     THEN "8.all three changes"
+     ELSE "1.no impact"
+     END AS vb_impact_grouping,
+seller_tier,
+COUNT(user_id) AS user_ct
+FROM impact_listing_ct
+GROUP BY 1,2,3
+;
+
+
+
