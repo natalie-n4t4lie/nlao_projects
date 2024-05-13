@@ -96,3 +96,68 @@ LEFT JOIN him_seller_giftbox c on a.listing_id = c.listing_id
 LEFT JOIN him_pod_listing d on a.listing_id = d.listing_id
 )
 ;
+
+
+------------------------------------------------------------------------------------------------------------------------------------------------------------
+-- JOIN CURRENT AND NEW LABEL TABLE
+------------------------------------------------------------------------------------------------------------------------------------------------------------
+CREATE OR REPLACE TABLE `etsy-data-warehouse-dev.nlao.him_joined_table` AS (
+SELECT
+  a.is_digital,
+  a.is_supplies,
+  a.is_vintage,
+  a.is_handmade,
+  a.has_production_partner,
+  a.back_end_labels AS current_backend_labels,
+  a.show_handmade AS current_frontend_handmade,
+  a.show_vintage AS current_frontend_vintage,
+  b.is_nature_item,
+  b.is_giftbox,
+  b.is_pod,
+--// variant A sizing
+  -- If digital = true
+  CASE WHEN 
+          a.is_digital = 1 
+        THEN "seller designed" 
+  -- Item from nature: If category = Any of these (static list for MVP)[Not digital, and Not Potential POD]
+      WHEN b.is_nature_item = 1 
+        THEN "seller sourced and curated: nature item"
+  -- Gift box: If category = Any of these (static list for MVP) [Not digital, and Not Potential POD]
+      WHEN b.is_giftbox = 1 
+        THEN "seller sourced and curated: giftbox"
+  -- “Who made it = someone else” handmade=(someone_else) [Not digital, Not Potential POD]
+      WHEN a.is_handmade = "someone_else" 
+        THEN "no label someone else"
+  -- handmade=(i_did, collective) [Not digital, Not Potential POD, not captured in above logic]
+      WHEN a.is_handmade IN ("i_did","collective") 
+        THEN "handmade"  
+      ELSE "not assigned" 
+  END AS variant_a_label,
+--// variant B sizing
+    -- If digital = true
+  CASE WHEN 
+          a.is_digital = 1 
+        THEN "seller designed" 
+  -- Listing identified as potential POD listing in *nightly job [Not digital]
+      WHEN b.is_pod = 1 
+        THEN "no label pod"
+  -- Item from nature: If category = Any of these (static list for MVP)[Not digital, and Not Potential POD]
+      WHEN b.is_nature_item = 1 
+        THEN "seller sourced and curated: nature item"
+  -- Gift box: If category = Any of these (static list for MVP) [Not digital, and Not Potential POD]
+      WHEN b.is_giftbox = 1 
+        THEN "seller sourced and curated: giftbox"
+  -- “Who made it = someone else” handmade=(someone_else) [Not digital, Not Potential POD]
+      WHEN a.is_handmade = "someone_else" 
+        THEN "no label someone else"
+  -- handmade=(i_did, collective) [Not digital, Not Potential POD, not captured in above logic]
+      WHEN a.is_handmade IN ("i_did","collective") 
+        THEN "handmade"  
+      ELSE "not assigned" 
+  END AS variant_b_label,
+  a.listing_id,
+  a.past_year_gms
+FROM `etsy-data-warehouse-dev.nlao.current_handmade_vintage_labels` a
+JOIN `etsy-data-warehouse-dev.nlao.him_labels` b using (listing_id)
+)
+;
