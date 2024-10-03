@@ -90,7 +90,10 @@ a.taxonomy_id,
 a.listing_id,
 b.attribute_id,
 b.is_set,
-b.is_required
+b.is_required,
+a.recs_impression_ct,
+a.search_impression_ct,
+a.ads_impression_ct
 FROM filterout_low_impression_listings a
 JOIN `etsy-data-warehouse-prod.rollups.active_listings_w_candidate_attributes` b
   ON a.listing_id = b.listing_id
@@ -103,6 +106,9 @@ WHERE
 )
 , variation_value AS (
 SELECT
+  a.recs_impression_ct,
+  a.search_impression_ct,
+  a.ads_impression_ct,
   a.listing_id,
   c.ott_attribute_id,
   c.attribute_name,
@@ -130,10 +136,29 @@ SELECT
   a.attribute_id,
   COALESCE(lower(aa.name),b.attribute_name, c.attribute_name) AS attribute_name,
   COALESCE(b.attribute_value, c.attribute_value) AS attribute_value,
-  COALESCE(b.scale_name, c.scale_name) AS scale_name
+  COALESCE(b.scale_name, c.scale_name) AS scale_name,
+  a.recs_impression_ct,
+  a.search_impression_ct,
+  a.ads_impression_ct,
+  cc.title,
+  cc.description,
+  bb.image_url1,
+  bb.image_url2,
+  bb.image_url3,
+  bb.image_url4,
+  bb.image_url5,
+  bb.image_url6,
+  bb.image_url7,
+  bb.image_url8,
+  bb.image_url9,
+  bb.image_url10
 FROM adoptable_attribute a
 JOIN `etsy-data-warehouse-prod.structured_data.attributes` aa
   ON a.attribute_id = aa.attribute_id
+JOIN `etsy-data-warehouse-prod.listing_mart.listing_images` bb
+  ON a.listing_id = bb.listing_id
+JOIN `etsy-data-warehouse-prod.rollups.active_listing_basics` cc
+  ON a.listing_id = cc.listing_id
 LEFT JOIN `etsy-data-warehouse-prod.listing_mart.listing_all_attributes` b
   ON a.listing_id = b.listing_id AND a.attribute_id = b.attribute_id AND lower(b.attribute_name) = lower(aa.name) AND b.is_active = 1
 LEFT JOIN variation_value c
@@ -178,25 +203,21 @@ SELECT
   b.attribute_id,
   b.attribute_name,
   b.attribute_value,
-  d.title,
-  d.description,
-  c.image_url1,
-  c.image_url2,
-  c.image_url3,
-  c.image_url4,
-  c.image_url5,
-  c.image_url6,
-  c.image_url7,
-  c.image_url8,
-  c.image_url9,
-  c.image_url10
+  b.title,
+  b.description,
+  b.image_url1,
+  b.image_url2,
+  b.image_url3,
+  b.image_url4,
+  b.image_url5,
+  b.image_url6,
+  b.image_url7,
+  b.image_url8,
+  b.image_url9,
+  b.image_url10
 FROM sample_listings a
 JOIN `etsy-data-warehouse-dev.nlao.label_box_candidate_listings` b
   ON a.listing_id = b.listing_id
-JOIN `etsy-data-warehouse-prod.listing_mart.listing_images` c
-  ON a.listing_id = c.listing_id
-JOIN `etsy-data-warehouse-prod.rollups.active_listing_basics` d
-  ON a.listing_id = d.listing_id
 ORDER BY b.level3, b.taxonomy_id, b.listing_id, b.attribute_id, b.product_id
 ;
 
@@ -219,25 +240,21 @@ SELECT
   b.attribute_id,
   b.attribute_name,
   b.attribute_value,
-  d.title,
-  d.description,
-  c.image_url1,
-  c.image_url2,
-  c.image_url3,
-  c.image_url4,
-  c.image_url5,
-  c.image_url6,
-  c.image_url7,
-  c.image_url8,
-  c.image_url9,
-  c.image_url10
+  b.title,
+  b.description,
+  b.image_url1,
+  b.image_url2,
+  b.image_url3,
+  b.image_url4,
+  b.image_url5,
+  b.image_url6,
+  b.image_url7,
+  b.image_url8,
+  b.image_url9,
+  b.image_url10
 FROM sample_listings a
 JOIN `etsy-data-warehouse-dev.nlao.label_box_candidate_listings` b
   ON a.listing_id = b.listing_id
-JOIN `etsy-data-warehouse-prod.listing_mart.listing_images` c
-  ON a.listing_id = c.listing_id
-JOIN `etsy-data-warehouse-prod.rollups.active_listing_basics` d
-  ON a.listing_id = d.listing_id
 ORDER BY b.level3, b.taxonomy_id, b.listing_id, b.attribute_id, b.product_id
 ;
 
@@ -260,25 +277,21 @@ SELECT
   b.attribute_id,
   b.attribute_name,
   b.attribute_value,
-  d.title,
-  d.description,
-  c.image_url1,
-  c.image_url2,
-  c.image_url3,
-  c.image_url4,
-  c.image_url5,
-  c.image_url6,
-  c.image_url7,
-  c.image_url8,
-  c.image_url9,
-  c.image_url10
+  b.title,
+  b.description,
+  b.image_url1,
+  b.image_url2,
+  b.image_url3,
+  b.image_url4,
+  b.image_url5,
+  b.image_url6,
+  b.image_url7,
+  b.image_url8,
+  b.image_url9,
+  b.image_url10
 FROM sample_listings a
 JOIN `etsy-data-warehouse-dev.nlao.label_box_candidate_listings` b
   ON a.listing_id = b.listing_id
-JOIN `etsy-data-warehouse-prod.listing_mart.listing_images` c
-  ON a.listing_id = c.listing_id
-JOIN `etsy-data-warehouse-prod.rollups.active_listing_basics` d
-  ON a.listing_id = d.listing_id
 ORDER BY b.level3, b.taxonomy_id, b.listing_id, b.attribute_id, b.product_id
 ;
 
