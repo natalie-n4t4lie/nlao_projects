@@ -149,20 +149,86 @@ FROM `etsy-data-warehouse-dev.nlao.label_box_candidate_listings`
 WHERE attribute_id = 55
 GROUP BY ALL
 ;
+
 SELECT
-level1,
-level2,
-level3,
-taxonomy_id,
-listing_id,
-product_id,
-attribute_id,
-attribute_name,
-attribute_value,
+  level3,
+  COUNT(DISTINCT listing_id) AS eligible_listing_ct,
+  COUNT(DISTINCT listing_id) * 0.0125 AS sample_ct
 FROM `etsy-data-warehouse-dev.nlao.label_box_candidate_listings`
-ORDER BY listing_id, RAND()
-LIMIT 100
+GROUP BY ALL
 ;
 
+--sample for sheets_and_pillowcases 
+WITH sample_listings AS (
+SELECT
+DISTINCT listing_id
+FROM `etsy-data-warehouse-dev.nlao.label_box_candidate_listings`
+WHERE level3 = "sheets_and_pillowcases"
+ORDER BY RAND()
+LIMIT 1317
+)
+SELECT
+  level1,
+  level2,
+  level3,
+  taxonomy_id,
+  b.listing_id,
+  product_id,
+  attribute_id,
+  attribute_name,
+  attribute_value
+FROM sample_listings a
+JOIN `etsy-data-warehouse-dev.nlao.label_box_candidate_listings` b
+  ON a.listing_id = b.listing_id
+ORDER BY level3, taxonomy_id, b.listing_id, attribute_id,product_id
+;
+-- blankets_and_throws
+WITH sample_listings AS (
+SELECT
+DISTINCT listing_id
+FROM `etsy-data-warehouse-dev.nlao.label_box_candidate_listings`
+WHERE level3 = "blankets_and_throws"
+ORDER BY RAND()
+LIMIT 6421
+)
+SELECT
+  level1,
+  level2,
+  level3,
+  taxonomy_id,
+  b.listing_id,
+  product_id,
+  attribute_id,
+  attribute_name,
+  attribute_value
+FROM sample_listings a
+JOIN `etsy-data-warehouse-dev.nlao.label_box_candidate_listings` b
+  ON a.listing_id = b.listing_id
+ORDER BY level3, taxonomy_id, b.listing_id, attribute_id,product_id
+;
 
+-- sample for duvet_covers
+WITH sample_listings AS (
+SELECT
+DISTINCT listing_id
+FROM `etsy-data-warehouse-dev.nlao.label_box_candidate_listings`
+WHERE level3 = "duvet_covers"
+ORDER BY RAND()
+LIMIT 396
+)
+SELECT
+  level1,
+  level2,
+  level3,
+  taxonomy_id,
+  b.listing_id,
+  product_id,
+  attribute_id,
+  attribute_name,
+  attribute_value
+FROM sample_listings a
+JOIN `etsy-data-warehouse-dev.nlao.label_box_candidate_listings` b
+  ON a.listing_id = b.listing_id
+ORDER BY level3, taxonomy_id, b.listing_id, attribute_id,product_id
+;
 
