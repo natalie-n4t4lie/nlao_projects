@@ -166,16 +166,6 @@ LEFT JOIN variation_value c
 )
 ;
 
-select
-value_from_attribute,
-value_from_variation,
-case when scale_name is not null then 1 else 0 end as has_scale,
-count(*)
-FROM `etsy-data-warehouse-dev.nlao.label_box_candidate_listings`
-WHERE attribute_id = 55
-GROUP BY ALL
-;
-
 SELECT
   level3,
   COUNT(DISTINCT listing_id) AS eligible_listing_ct,
