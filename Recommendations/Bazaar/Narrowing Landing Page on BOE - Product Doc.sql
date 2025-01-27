@@ -49,7 +49,7 @@ SELECT
   a.beacon.ref,
   (SELECT value FROM UNNEST(beacon.properties.key_value) WHERE key = "spec") AS spec,
   COUNT(DISTINCT visit_id) AS visit_distinct_ct,
-  COUNT(visit_id) AS visit_ct,
+  COUNT(visit_id) AS page_ct,
 FROM `etsy-visit-pipe-prod.canonical.visit_id_beacons` a 
   JOIN UNNEST(beacon.ab.key_value)
 WHERE a.beacon.event_name = "boe_sdl_landing_page"
@@ -72,7 +72,7 @@ SELECT
           ELSE 'undefined' END AS app_platform_case,         
   (SELECT value FROM UNNEST(beacon.properties.key_value) WHERE key = "spec") AS spec,
   COUNT(DISTINCT visit_id) AS visit_distinct_ct,
-  COUNT(visit_id) AS visit_ct
+  COUNT(visit_id) AS page_ct
 FROM `etsy-visit-pipe-prod.canonical.visit_id_beacons` a 
   JOIN UNNEST(beacon.ab.key_value)
 WHERE a.beacon.event_name = "boe_landing_page_listings"
