@@ -76,4 +76,27 @@ AND DATE(_PARTITIONTIME) BETWEEN CURRENT_DATE - 30 AND CURRENT_DATE
 GROUP BY ALL
 ;
 
+-- DENOMINATOR FOR % VISITS 
+SELECT
+ CASE WHEN event_source IN ('web', 'customshops', 'craft_web')
+          AND is_mobile_device = 0 THEN 'desktop'
+          when event_source IN ('web', 'customshops', 'craft_web')
+          AND is_mobile_device =1 THEN  'mobile_web'
+          when event_source IN ('ios','android')
+          AND REGEXP_CONTAINS(LOWER(user_agent), LOWER('SellOnEtsy')) THEN 'soe'
+          when event_source IN ('ios')
+          AND NOT REGEXP_CONTAINS(LOWER(user_agent), LOWER('SellOnEtsy')) THEN 'boe ios'
+          when event_source IN ('android')
+          AND NOT REGEXP_CONTAINS(LOWER(user_agent), LOWER('SellOnEtsy')) THEN 'boe android'
+          else 'undefined' END AS app_platform_case,
+COUNT(DISTINCT a.visit_id) AS visit_ct
+FROM `etsy-data-warehouse-prod.weblog.recent_visits` a
+JOIN `etsy-data-warehouse-prod.weblog.events` e
+  ON a.visit_id = e.visit_id
+WHERE a._date BETWEEN CURRENT_DATE - 30 AND CURRENT_DATE
+AND event_type IN ("boe_listing_screen_similar_listings_organic_only","view_favorites_recommendations", "homescreen_recent_favorites" , "homescreen_recently_viewed_horiz","sdl_category_page", "space_page", "gift_mode_gift_idea","boe_listing_screen_similar_listings_organic_only" , "view_favorites_recommendations", "homescreen_recent_favorites","homescreen_recently_viewed_horiz", "sdl_category_page", "space_page" ,"gift_mode_gift_idea","boe_landing_page_listings","boe_sdl_landing_page")
+GROUP BY ALL
+;
+
+
 
