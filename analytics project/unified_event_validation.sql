@@ -101,171 +101,6 @@ ORDER BY 2,4 DESC
 WITH unified_deliveries AS (
 SELECT * FROM `etsy-data-warehouse-dev.nlao.recs_visits` 
 WHERE event_name = 'listing_set_delivered'
-AND _placement_beacon IN (
-    "boe_homescreen_evergreen_interests",
-    "boe_homescreen_our_picks",
-    "boe_homescreen_recs_placeholder_module",
-    "boe_homescreen_feed",
-    "boe_homescreen_recs_placeholder_module_3",
-    "boe_homescreen_post_purchase_people_also_bought",
-    "listing_side",
-    "home_opfy",
-    "internal_bot",
-    "external_top",
-    "pla_top",
-    "home_rv",
-    "external_bot",
-    "home_signed_out_opfy",
-    "lp_free_shipping_bundle",
-    "home_rf",
-    "home_popular_right_now",
-    "pla_bot",
-    "hp_recent_activity_hub",
-    "home_people_also_bought",
-    "home_item_favoriting_quiz",
-    "post_add_to_cart_tipper_recs",
-    "home_more_from_this_shop",
-    "pla_top",
-    "listing_side",
-    "external_top",
-    "internal_bot",
-    "lp_recently_viewed",
-    "home_rv",
-    "external_bot",
-    "home_rf",
-    "pla_bot",
-    "home_opfy",
-    "home_signed_out_opfy",
-    "home_popular_right_now",
-    "hp_recent_activity_hub",
-    "home_people_also_bought",
-    "home_more_from_this_shop",
-    "boe_homescreen_evergreen_interests",
-    "boe_homescreen_our_picks"
-    )
-),
-unified_meta AS (
-SELECT * FROM `etsy-data-warehouse-dev.nlao.recs_visits` 
-WHERE event_name = 'recs_listing_set_metadata'
-AND _placement_beacon IN (
-    "boe_homescreen_evergreen_interests",
-    "boe_homescreen_our_picks",
-    "boe_homescreen_recs_placeholder_module",
-    "boe_homescreen_feed",
-    "boe_homescreen_recs_placeholder_module_3",
-    "boe_homescreen_post_purchase_people_also_bought",
-    "listing_side",
-    "home_opfy",
-    "internal_bot",
-    "external_top",
-    "pla_top",
-    "home_rv",
-    "external_bot",
-    "home_signed_out_opfy",
-    "lp_free_shipping_bundle",
-    "home_rf",
-    "home_popular_right_now",
-    "pla_bot",
-    "hp_recent_activity_hub",
-    "home_people_also_bought",
-    "home_item_favoriting_quiz",
-    "post_add_to_cart_tipper_recs",
-    "home_more_from_this_shop",
-    "pla_top",
-    "listing_side",
-    "external_top",
-    "internal_bot",
-    "lp_recently_viewed",
-    "home_rv",
-    "external_bot",
-    "home_rf",
-    "pla_bot",
-    "home_opfy",
-    "home_signed_out_opfy",
-    "home_popular_right_now",
-    "hp_recent_activity_hub",
-    "home_people_also_bought",
-    "home_more_from_this_shop",
-    "boe_homescreen_evergreen_interests",
-    "boe_homescreen_our_picks"
-    )
-),
-legacy_deliveries AS (
-SELECT * FROM `etsy-data-warehouse-dev.nlao.recs_legacy_visits` 
-WHERE event_name = 'recommendations_module_delivered'
-AND _placement_beacon IN (
-    "boe_homescreen_evergreen_interests",
-    "boe_homescreen_our_picks",
-    "boe_homescreen_recs_placeholder_module",
-    "boe_homescreen_feed",
-    "boe_homescreen_recs_placeholder_module_3",
-    "boe_homescreen_post_purchase_people_also_bought",
-    "listing_side",
-    "home_opfy",
-    "internal_bot",
-    "external_top",
-    "pla_top",
-    "home_rv",
-    "external_bot",
-    "home_signed_out_opfy",
-    "lp_free_shipping_bundle",
-    "home_rf",
-    "home_popular_right_now",
-    "pla_bot",
-    "hp_recent_activity_hub",
-    "home_people_also_bought",
-    "home_item_favoriting_quiz",
-    "post_add_to_cart_tipper_recs",
-    "home_more_from_this_shop",
-    "pla_top",
-    "listing_side",
-    "external_top",
-    "internal_bot",
-    "lp_recently_viewed",
-    "home_rv",
-    "external_bot",
-    "home_rf",
-    "pla_bot",
-    "home_opfy",
-    "home_signed_out_opfy",
-    "home_popular_right_now",
-    "hp_recent_activity_hub",
-    "home_people_also_bought",
-    "home_more_from_this_shop",
-    "boe_homescreen_evergreen_interests",
-    "boe_homescreen_our_picks"
-    )
-)
-SELECT
-COALESCE(u._placement_beacon,um._placement_beacon,l._placement_beacon) AS _placement_beacon,
-COALESCE(u.platform,um.platform,l.platform) AS platform,
-COUNT(*) AS total_deliveries_ct,
-COUNT(CASE WHEN u._placement_beacon IS NOT NULL AND um._placement_beacon IS NOT NULL AND l._placement_beacon IS NOT NULL THEN u.visit_id END) AS overlap_deliveries,
-COUNT(CASE WHEN u._placement_beacon IS NOT NULL AND um._placement_beacon IS NULL AND l._placement_beacon IS NULL THEN u.visit_id END) AS unified_deliveries_only_ct,
-COUNT(CASE WHEN u._placement_beacon IS NULL AND um._placement_beacon IS NOT NULL AND l._placement_beacon IS NULL THEN um.visit_id END) AS unified_meta_only_ct,
-COUNT(CASE WHEN u._placement_beacon IS NULL AND um._placement_beacon IS NULL AND l._placement_beacon IS NOT NULL THEN l.visit_id END) AS legacy_deliveries_only_ct,
-COUNT(CASE WHEN u._placement_beacon IS NOT NULL AND um._placement_beacon IS NOT NULL AND l._placement_beacon IS NULL THEN u.visit_id END) AS unified_delivies_meta_overlap_ct,
-COUNT(CASE WHEN u._placement_beacon IS NOT NULL AND um._placement_beacon IS NULL AND l._placement_beacon IS NOT NULL THEN u.visit_id END) AS unified_delivies_legacy_overlap_ct,
-COUNT(CASE WHEN u._placement_beacon IS NULL AND um._placement_beacon IS NOT NULL AND l._placement_beacon IS NOT NULL THEN l.visit_id END) AS unified_meta_legacy_overlap_ct,
-FROM unified_deliveries u
-FULL OUTER JOIN legacy_deliveries l
-ON u.visit_id = l.visit_id AND u._placement_beacon=l._placement_beacon
-FULL OUTER JOIN unified_meta um
-ON u.visit_id = um.visit_id AND u._placement_beacon=um._placement_beacon
-GROUP BY ALL
-;
-
-
--- STEP 4: SEEN EVENT VALIDATION
-
--- legacy
-SELECT 
-  platform,
-  module_placement,
-  SUM(CASE WHEN seen = 1 THEN 1 ELSE 0 END) AS legacy_seen_ct
-FROM `etsy-data-warehouse-prod.rollups.recsys_delivered_listings` r
-WHERE _date BETWEEN '2025-04-21'AND '2025-04-22'
-  AND seen = 1
   AND ((platform = 'boe' AND  _placement_beacon IN ("boe_homescreen_evergreen_interests",
                                             "boe_homescreen_our_picks",
                                             "boe_homescreen_recs_placeholder_module",
@@ -274,7 +109,7 @@ WHERE _date BETWEEN '2025-04-21'AND '2025-04-22'
                                             "boe_homescreen_post_purchase_people_also_bought")
 )
 OR
-(platform = 'dekstop' AND  _placement_beacon IN ("listing_side",
+(platform = 'desktop' AND  _placement_beacon IN ("listing_side",
                                               "home_opfy",
                                               "internal_bot",
                                               "external_top",
@@ -312,6 +147,183 @@ OR
                                               "boe_homescreen_our_picks",
                                               "boe_homescreen_recs_placeholder_module")
 ))
+),
+unified_meta AS (
+SELECT * FROM `etsy-data-warehouse-dev.nlao.recs_visits` 
+WHERE event_name = 'recs_listing_set_metadata'
+  AND ((platform = 'boe' AND  _placement_beacon IN ("boe_homescreen_evergreen_interests",
+                                            "boe_homescreen_our_picks",
+                                            "boe_homescreen_recs_placeholder_module",
+                                            "boe_homescreen_feed",
+                                            "boe_homescreen_recs_placeholder_module_3",
+                                            "boe_homescreen_post_purchase_people_also_bought")
+)
+OR
+(platform = 'desktop' AND  _placement_beacon IN ("listing_side",
+                                              "home_opfy",
+                                              "internal_bot",
+                                              "external_top",
+                                              "pla_top",
+                                              "home_rv",
+                                              "external_bot",
+                                              "home_signed_out_opfy",
+                                              "lp_free_shipping_bundle",
+                                              "home_rf",
+                                              "home_popular_right_now",
+                                              "pla_bot",
+                                              "hp_recent_activity_hub",
+                                              "home_people_also_bought",
+                                              "home_item_favoriting_quiz",
+                                              "post_add_to_cart_tipper_recs",
+                                              "home_more_from_this_shop")
+)
+OR 
+(platform = 'mobile_web' AND  _placement_beacon IN ("pla_top",
+                                              "listing_side",
+                                              "external_top",
+                                              "internal_bot",
+                                              "lp_recently_viewed",
+                                              "home_rv",
+                                              "external_bot",
+                                              "home_rf",
+                                              "pla_bot",
+                                              "home_opfy",
+                                              "home_signed_out_opfy",
+                                              "home_popular_right_now",
+                                              "hp_recent_activity_hub",
+                                              "home_people_also_bought",
+                                              "home_more_from_this_shop",
+                                              "boe_homescreen_evergreen_interests",
+                                              "boe_homescreen_our_picks",
+                                              "boe_homescreen_recs_placeholder_module")
+))
+),
+legacy_deliveries AS (
+SELECT * FROM `etsy-data-warehouse-dev.nlao.recs_legacy_visits` 
+WHERE event_name = 'recommendations_module_delivered'
+  AND ((platform = 'boe' AND  _placement_beacon IN ("boe_homescreen_evergreen_interests",
+                                            "boe_homescreen_our_picks",
+                                            "boe_homescreen_recs_placeholder_module",
+                                            "boe_homescreen_feed",
+                                            "boe_homescreen_recs_placeholder_module_3",
+                                            "boe_homescreen_post_purchase_people_also_bought")
+)
+OR
+(platform = 'desktop' AND  _placement_beacon IN ("listing_side",
+                                              "home_opfy",
+                                              "internal_bot",
+                                              "external_top",
+                                              "pla_top",
+                                              "home_rv",
+                                              "external_bot",
+                                              "home_signed_out_opfy",
+                                              "lp_free_shipping_bundle",
+                                              "home_rf",
+                                              "home_popular_right_now",
+                                              "pla_bot",
+                                              "hp_recent_activity_hub",
+                                              "home_people_also_bought",
+                                              "home_item_favoriting_quiz",
+                                              "post_add_to_cart_tipper_recs",
+                                              "home_more_from_this_shop")
+)
+OR 
+(platform = 'mobile_web' AND  _placement_beacon IN ("pla_top",
+                                              "listing_side",
+                                              "external_top",
+                                              "internal_bot",
+                                              "lp_recently_viewed",
+                                              "home_rv",
+                                              "external_bot",
+                                              "home_rf",
+                                              "pla_bot",
+                                              "home_opfy",
+                                              "home_signed_out_opfy",
+                                              "home_popular_right_now",
+                                              "hp_recent_activity_hub",
+                                              "home_people_also_bought",
+                                              "home_more_from_this_shop",
+                                              "boe_homescreen_evergreen_interests",
+                                              "boe_homescreen_our_picks",
+                                              "boe_homescreen_recs_placeholder_module")
+))
+)
+SELECT
+COALESCE(u._placement_beacon,um._placement_beacon,l._placement_beacon) AS _placement_beacon,
+COALESCE(u.platform,um.platform,l.platform) AS platform,
+COUNT(*) AS total_deliveries_ct,
+COUNT(CASE WHEN u._placement_beacon IS NOT NULL AND um._placement_beacon IS NOT NULL AND l._placement_beacon IS NOT NULL THEN u.visit_id END) AS overlap_deliveries,
+COUNT(CASE WHEN u._placement_beacon IS NOT NULL AND um._placement_beacon IS NULL AND l._placement_beacon IS NULL THEN u.visit_id END) AS unified_deliveries_only_ct,
+COUNT(CASE WHEN u._placement_beacon IS NULL AND um._placement_beacon IS NOT NULL AND l._placement_beacon IS NULL THEN um.visit_id END) AS unified_meta_only_ct,
+COUNT(CASE WHEN u._placement_beacon IS NULL AND um._placement_beacon IS NULL AND l._placement_beacon IS NOT NULL THEN l.visit_id END) AS legacy_deliveries_only_ct,
+COUNT(CASE WHEN u._placement_beacon IS NOT NULL AND um._placement_beacon IS NOT NULL AND l._placement_beacon IS NULL THEN u.visit_id END) AS unified_delivies_meta_overlap_ct,
+COUNT(CASE WHEN u._placement_beacon IS NOT NULL AND um._placement_beacon IS NULL AND l._placement_beacon IS NOT NULL THEN u.visit_id END) AS unified_delivies_legacy_overlap_ct,
+COUNT(CASE WHEN u._placement_beacon IS NULL AND um._placement_beacon IS NOT NULL AND l._placement_beacon IS NOT NULL THEN l.visit_id END) AS unified_meta_legacy_overlap_ct,
+FROM unified_deliveries u
+FULL OUTER JOIN legacy_deliveries l
+ON u.visit_id = l.visit_id AND u._placement_beacon=l._placement_beacon
+FULL OUTER JOIN unified_meta um
+ON u.visit_id = um.visit_id AND u._placement_beacon=um._placement_beacon
+GROUP BY ALL
+;
+
+
+-- STEP 4: SEEN EVENT VALIDATION
+
+-- legacy
+SELECT 
+  platform,
+  module_placement,
+  SUM(CASE WHEN seen = 1 THEN 1 ELSE 0 END) AS legacy_seen_ct
+FROM `etsy-data-warehouse-prod.rollups.recsys_delivered_listings` r
+WHERE _date BETWEEN '2025-04-21'AND '2025-04-22'
+  AND seen = 1
+  AND ((platform = 'boe' AND  module_placement IN ("boe_homescreen_evergreen_interests",
+                                            "boe_homescreen_our_picks",
+                                            "boe_homescreen_recs_placeholder_module",
+                                            "boe_homescreen_feed",
+                                            "boe_homescreen_recs_placeholder_module_3",
+                                            "boe_homescreen_post_purchase_people_also_bought")
+)
+OR
+(platform = 'desktop' AND  module_placement IN ("listing_side",
+                                              "home_opfy",
+                                              "internal_bot",
+                                              "external_top",
+                                              "pla_top",
+                                              "home_rv",
+                                              "external_bot",
+                                              "home_signed_out_opfy",
+                                              "lp_free_shipping_bundle",
+                                              "home_rf",
+                                              "home_popular_right_now",
+                                              "pla_bot",
+                                              "hp_recent_activity_hub",
+                                              "home_people_also_bought",
+                                              "home_item_favoriting_quiz",
+                                              "post_add_to_cart_tipper_recs",
+                                              "home_more_from_this_shop")
+)
+OR 
+(platform = 'mobile_web' AND  module_placement IN ("pla_top",
+                                              "listing_side",
+                                              "external_top",
+                                              "internal_bot",
+                                              "lp_recently_viewed",
+                                              "home_rv",
+                                              "external_bot",
+                                              "home_rf",
+                                              "pla_bot",
+                                              "home_opfy",
+                                              "home_signed_out_opfy",
+                                              "home_popular_right_now",
+                                              "hp_recent_activity_hub",
+                                              "home_people_also_bought",
+                                              "home_more_from_this_shop",
+                                              "boe_homescreen_evergreen_interests",
+                                              "boe_homescreen_our_picks",
+                                              "boe_homescreen_recs_placeholder_module")
+))
 GROUP BY ALL
 ;
 
@@ -330,7 +342,7 @@ WHERE event_name = 'listing_impression'
                                             "boe_homescreen_post_purchase_people_also_bought")
 )
 OR
-(platform = 'dekstop' AND  _placement_beacon IN ("listing_side",
+(platform = 'desktop' AND  _placement_beacon IN ("listing_side",
                                               "home_opfy",
                                               "internal_bot",
                                               "external_top",
@@ -382,7 +394,7 @@ SELECT
   SUM(CASE WHEN clicked = 1 THEN 1 ELSE 0 END) AS legacy_click_ct
 FROM `etsy-data-warehouse-prod.rollups.recsys_delivered_listings` r
 WHERE _date BETWEEN '2025-04-21'AND '2025-04-22'
-  AND (platform = 'boe' AND  _placement_beacon IN ("boe_homescreen_evergreen_interests",
+  AND (platform = 'boe' AND  module_placement IN ("boe_homescreen_evergreen_interests",
                                             "boe_homescreen_our_picks",
                                             "boe_homescreen_recs_placeholder_module",
                                             "boe_homescreen_feed",
@@ -390,7 +402,7 @@ WHERE _date BETWEEN '2025-04-21'AND '2025-04-22'
                                             "boe_homescreen_post_purchase_people_also_bought")
 )
 OR
-(platform = 'dekstop' AND  _placement_beacon IN ("listing_side",
+(platform = 'desktop' AND  module_placement IN ("listing_side",
                                               "home_opfy",
                                               "internal_bot",
                                               "external_top",
@@ -409,7 +421,7 @@ OR
                                               "home_more_from_this_shop")
 )
 OR 
-(platform = 'mobile_web' AND  _placement_beacon IN ("pla_top",
+(platform = 'mobile_web' AND  module_placement IN ("pla_top",
                                               "listing_side",
                                               "external_top",
                                               "internal_bot",
@@ -447,7 +459,7 @@ WHERE event_name = 'listing_interaction'
                                             "boe_homescreen_post_purchase_people_also_bought")
 )
 OR
-(platform = 'dekstop' AND  _placement_beacon IN ("listing_side",
+(platform = 'desktop' AND  _placement_beacon IN ("listing_side",
                                               "home_opfy",
                                               "internal_bot",
                                               "external_top",
