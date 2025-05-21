@@ -47,7 +47,7 @@ END IF;
 -- BUCKETING DATA
 -------------------------------------------------------------------------------------------
 -- Get the first bucketing moment for each experimental unit (e.g. browser or user).
-CREATE OR REPLACE TABLE `etsy-data-warehouse-dev.nlao.ab_first_bucket` AS (
+CREATE OR REPLACE TABLE `etsy-data-warehouse-dev.nlao.ab_first_bucket_evergreen_frozen_pc` AS (
     SELECT
         bucketing_id,
         bucketing_id_type AS bucketing_id_type,
@@ -63,14 +63,14 @@ CREATE OR REPLACE TABLE `etsy-data-warehouse-dev.nlao.ab_first_bucket` AS (
 );
 
 IF is_event_filtered THEN
-    CREATE OR REPLACE TABLE `etsy-data-warehouse-dev.nlao.ab_first_bucket` AS (
+    CREATE OR REPLACE TABLE `etsy-data-warehouse-dev.nlao.ab_first_bucket_evergreen_frozen_pc` AS (
         SELECT
             a.bucketing_id,
             a.bucketing_id_type,
             a.variant_id,
             MIN(f.event_ts) AS bucketing_ts,
         FROM
-            `etsy-data-warehouse-dev.nlao.ab_first_bucket` a
+            `etsy-data-warehouse-dev.nlao.ab_first_bucket_evergreen_frozen_pc` a
         JOIN
             `etsy-data-warehouse-prod.catapult_unified.filtering_event` f
             USING(bucketing_id)
@@ -85,14 +85,14 @@ IF is_event_filtered THEN
 END IF;
 
 IF bucketing_id_type = 1 THEN -- browser data (see go/catapult-unified-enums)
-    CREATE OR REPLACE TABLE `etsy-data-warehouse-dev.nlao.subsequent_visits` AS (
+    CREATE OR REPLACE TABLE `etsy-data-warehouse-dev.nlao.subsequent_visits_evergreen_frozen_pc` AS (
         SELECT
             b.bucketing_id,
             b.variant_id,
             v.visit_id,
             v.user_id
         FROM
-            `etsy-data-warehouse-dev.nlao.ab_first_bucket` b
+            `etsy-data-warehouse-dev.nlao.ab_first_bucket_evergreen_frozen_pc` b
         JOIN
             `etsy-data-warehouse-prod.weblog.visits` v
             ON b.bucketing_id = v.browser_id
@@ -102,7 +102,7 @@ IF bucketing_id_type = 1 THEN -- browser data (see go/catapult-unified-enums)
     );
 
 ELSEIF bucketing_id_type = 2 THEN -- user data (see go/catapult-unified-enums)
-    CREATE OR REPLACE TABLE `etsy-data-warehouse-dev.nlao.subsequent_visits` AS (
+    CREATE OR REPLACE TABLE `etsy-data-warehouse-dev.nlao.subsequent_visits_evergreen_frozen_pc` AS (
         SELECT
             b.bucketing_id,
             b.variant_id,
@@ -126,7 +126,7 @@ ELSEIF bucketing_id_type = 2 THEN -- user data (see go/catapult-unified-enums)
     );
 END IF;
 
-CREATE OR REPLACE TABLE `etsy-data-warehouse-dev.nlao.experiment_delivered_listings` AS (
+CREATE OR REPLACE TABLE `etsy-data-warehouse-dev.nlao.experiment_delivered_listings_evergreen_frozen_pc` AS (
 SELECT
 v.bucketing_id,
 v.variant_id,
@@ -149,7 +149,7 @@ r.added_to_cart,
 r.purchased_after_view,
 r.listing_rank,
 r.sequence_number
-FROM `etsy-data-warehouse-dev.nlao.subsequent_visits` v
+FROM `etsy-data-warehouse-dev.nlao.subsequent_visits_evergreen_frozen_pc` v
 JOIN `etsy-data-warehouse-prod.rollups.recsys_delivered_listings` r
   ON v.visit_id = r.visit_id
 WHERE module_placement = target_module_placement
@@ -165,11 +165,11 @@ SUM(seen) AS seen_listings,
 SUM(clicked) AS clicked_listings,
 SUM(added_to_cart) AS carted_listings,
 SUM(purchased_after_view) AS purchased_listings
-FROM `etsy-data-warehouse-dev.nlao.experiment_delivered_listings`
+FROM `etsy-data-warehouse-dev.nlao.experiment_delivered_listings_evergreen_frozen_pc`
 GROUP BY ALL
 ;
 
-CREATE OR REPLACE TABLE `etsy-data-warehouse-dev.nlao.experiment_homefeed_listing_rank` AS (
+CREATE OR REPLACE TABLE `etsy-data-warehouse-dev.nlao.experiment_homefeed_listing_rank_evergreen_frozen_pc` AS (
 with listing_rank as (
   select
   v.variant_id,
@@ -183,8 +183,8 @@ with listing_rank as (
   d.purchased_after_view,
   d.listing_rank,
   row_number() over (partition by v.visit_id order by listing_rank) as rw
-from `etsy-data-warehouse-prod.rollups.recsys_delivered_listings` d
-JOIN `etsy-data-warehouse-dev.nlao.subsequent_visits` v
+from `etsy-data-warehouse-prod.rollups.recsys_delivered_listings_evergreen_frozen_pc` d
+JOIN `etsy-data-warehouse-dev.nlao.subsequent_visits_evergreen_frozen_pc` v
   ON d.visit_id = v.visit_id
 where d.module_placement = 'boe_homescreen_feed'
 AND d._date BETWEEN '2025-04-16' AND '2025-04-27'
@@ -285,7 +285,7 @@ SUM(CASE WHEN candidate_set = "arizona:EVERGREEN_INTERESTS_HEURISTICS_WITH_XWALK
 SUM(purchased_after_view) AS purchase_ct,
 SUM(CASE WHEN candidate_set = "arizona:Evergreen_Clusters_Listing_V1" AND purchased_after_view = 1 THEN 1 ELSE 0 END) AS popular_cluster_listing_purchase,
 SUM(CASE WHEN candidate_set = "arizona:EVERGREEN_INTERESTS_HEURISTICS_WITH_XWALK_FEED" AND purchased_after_view = 1 THEN 1 ELSE 0 END) AS evergreen_listing_purchase,
-FROM `etsy-data-warehouse-dev.nlao.experiment_homefeed_listing_rank`
+FROM `etsy-data-warehouse-dev.nlao.experiment_homefeed_listing_rank_evergreen_frozen_pc`
 WHERE listing_rank<=10
 AND variant_id = "on"
 GROUP BY ALL
@@ -325,7 +325,7 @@ SUM(CASE WHEN candidate_set = "arizona:EVERGREEN_INTERESTS_HEURISTICS_WITH_XWALK
 SUM(purchased_after_view) AS purchase_ct,
 SUM(CASE WHEN candidate_set = "arizona:Evergreen_Clusters_Listing_V1" AND purchased_after_view = 1 THEN 1 ELSE 0 END) AS popular_cluster_listing_purchase,
 SUM(CASE WHEN candidate_set = "arizona:EVERGREEN_INTERESTS_HEURISTICS_WITH_XWALK_FEED" AND purchased_after_view = 1 THEN 1 ELSE 0 END) AS evergreen_listing_purchase,
-FROM `etsy-data-warehouse-dev.nlao.experiment_homefeed_listing_rank`
+FROM `etsy-data-warehouse-dev.nlao.experiment_homefeed_listing_rank_evergreen_frozen_pc`
 WHERE listing_rank<=30
 AND variant_id = "on"
 GROUP BY ALL
@@ -365,7 +365,7 @@ SUM(CASE WHEN candidate_set = "arizona:EVERGREEN_INTERESTS_HEURISTICS_WITH_XWALK
 SUM(purchased_after_view) AS purchase_ct,
 SUM(CASE WHEN candidate_set = "arizona:Evergreen_Clusters_Listing_V1" AND purchased_after_view = 1 THEN 1 ELSE 0 END) AS popular_cluster_listing_purchase,
 SUM(CASE WHEN candidate_set = "arizona:EVERGREEN_INTERESTS_HEURISTICS_WITH_XWALK_FEED" AND purchased_after_view = 1 THEN 1 ELSE 0 END) AS evergreen_listing_purchase,
-FROM `etsy-data-warehouse-dev.nlao.experiment_homefeed_listing_rank`
+FROM `etsy-data-warehouse-dev.nlao.experiment_homefeed_listing_rank_evergreen_frozen_pc`
 WHERE listing_rank<=50
 AND variant_id = "on"
 GROUP BY ALL
@@ -397,7 +397,7 @@ visit_id,
 in_visit_feed_view_number,
 MAX(listing_rank) AS deepest_listing_seen,
 MAX(clicked) AS clicked
-FROM `etsy-data-warehouse-dev.nlao.experiment_homefeed_listing_rank`
+FROM `etsy-data-warehouse-dev.nlao.experiment_homefeed_listing_rank_evergreen_frozen_pc`
 GROUP BY ALL
 )
 SELECT
@@ -424,7 +424,7 @@ visit_id,
 -- candidate_set,
 COUNT(*) AS delivered_listings,
 COUNT(distinct rec_taxonomy_id) AS taxonomy_id_ct
-FROM `etsy-data-warehouse-dev.nlao.experiment_delivered_listings`
+FROM `etsy-data-warehouse-dev.nlao.experiment_delivered_listings_evergreen_frozen_pc`
 WHERE seen = 1
 GROUP BY ALL
 )
@@ -444,7 +444,7 @@ variant_id,
 _date,
 visit_id,
 user_id,
-FROM `etsy-data-warehouse-dev.nlao.experiment_delivered_listings` r
+FROM `etsy-data-warehouse-dev.nlao.experiment_delivered_listings_evergreen_frozen_pc` r
 JOIN `etsy-data-warehouse-prod.weblog.visits` v
      USING (visit_id)
 WHERE v._date BETWEEN '2025-04-16' AND '2025-04-27'
