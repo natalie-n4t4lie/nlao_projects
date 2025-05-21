@@ -437,4 +437,26 @@ GROUP BY ALL
 ;
 
 
-
+-- re-engagement
+WITH cte AS (
+SELECT DISTINCT
+variant_id,
+_date,
+visit_id,
+user_id,
+FROM `etsy-data-warehouse-dev.nlao.experiment_delivered_listings` r
+JOIN `etsy-data-warehouse-prod.weblog.visits` v
+     USING (visit_id)
+WHERE v._date BETWEEN '2025-04-16' AND '2025-04-27'
+AND module_placement = 'boe_homescreen_feed'
+AND clicked = 1
+)
+SELECT
+c1.variant_id,
+COUNT(DISTINCT c1.user_id) AS denom,
+COUNT(DISTINCT c2.user_id) AS num
+FROM cte c1
+LEFT JOIN cte c2
+     ON c1.user_id = c2.user_id AND c1._date < c2._date
+GROUP BY ALL
+;
