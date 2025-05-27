@@ -179,3 +179,43 @@ FROM listing_language_flag
 GROUP BY ALL
 ;
 
+-- get pre-ranked candidates sampled
+CREATE OR REPLACE TABLE `etsy-data-warehouse-dev.nlao.experiment_pre_rank_listings_l2l_two_tower_v1` AS (
+select
+e.variant_id,
+v.visit_id,
+uuid,
+(SELECT value FROM UNNEST(beacon.properties.key_value) WHERE KEY = "module_placement") AS module_placement,
+json_extract(json_element_value,'$.listingId') as listing_id,
+from `etsy-visit-pipe-prod.canonical.visit_id_beacons` v
+TABLESAMPLE SYSTEM (1 PERCENT)
+inner join `etsy-data-warehouse-dev.nlao.subsequent_visits_l2l_two_tower_v1` e ON v.visit_id = e.visit_id
+inner join `etsy-recsys-ml-prod.kafka_sink_recsys.recsys-mmx-ranking-response` mmx on REGEXP_EXTRACT((SELECT value FROM UNNEST(beacon.properties.key_value) WHERE KEY = "mmx_request_uuid_map"), r'"([^"]+)":\[') = uuid,
+unnest(json_extract_array(rankedCandidates)) as json_element_value
+WHERE beacon.event_name = 'recommendations_module_delivered'
+and (SELECT value FROM UNNEST(beacon.properties.key_value) WHERE KEY = "module_placement") in ("pla_top","external_top","internal_bot","external_bot","pla_bot")
+and date(mmx._partitiontime) = '2025-05-01'
+and date(v._partitiontime) = '2025-05-01'
+)
+;
+
+WITH listing_language_flag AS (
+SELECT
+r.*,
+is_translated
+FROM `etsy-data-warehouse-dev.nlao.experiment_pre_rank_listings_l2l_two_tower_v1` r
+JOIN `etsy-data-warehouse-prod.listing_mart.listing_titles` l
+    ON CAST(r.listing_id AS INT64) = l.listing_id
+)
+SELECT
+module_placement,
+variant_id,
+is_translated,
+COUNT(DISTINCT visit_id) AS visit_ct,
+COUNT(*) AS delivered_ct
+FROM listing_language_flag
+GROUP BY ALL
+;
+
+
+
